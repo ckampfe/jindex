@@ -44,19 +44,33 @@ fn write_path<W: Write>(
     writer: &mut W,
 ) -> Result<(), Box<dyn Error>> {
     let (path, value) = path_value;
-    let mapped_path = path
-        .iter()
-        .map(|item| match item {
-            serde_json::Value::String(s) => s.to_string(),
-            serde_json::Value::Number(n) => n.as_f64().unwrap().to_string(),
-            _ => panic!("JSON path items must be numbers or strings"),
-        })
-        .collect::<Vec<String>>();
+
+    let initial_string = String::new();
+
+    let mapped_path = path.iter().fold(initial_string, |acc, item| match item {
+        serde_json::Value::String(s) => {
+            if acc.is_empty() {
+                format!("{}\"{}\"", acc, s.to_string())
+            } else {
+                format!("{}, \"{}\"", acc, s.to_string())
+            }
+        }
+        serde_json::Value::Number(n) => {
+            if acc.is_empty() {
+                format!("{}{}", acc, n.as_f64().unwrap())
+            } else {
+                format!("{}, {}", acc, n.as_f64().unwrap())
+            }
+        }
+        _ => panic!("JSON path items must be numbers or strings"),
+    });
+
+    let result_string = format!("[{}]", mapped_path);
 
     writeln!(
         writer,
-        "{:?} => {}",
-        mapped_path,
+        "{} => {}",
+        result_string,
         serde_json::to_string(&value).unwrap()
     )?;
 
