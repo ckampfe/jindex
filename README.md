@@ -1,6 +1,12 @@
 jindex
 ===
 
+## Installation
+
+```
+$ git clone git@github.com:ckampfe/jindex.git
+$ cargo install --path .
+```
 
 ## Use
 
