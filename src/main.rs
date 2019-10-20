@@ -2,7 +2,17 @@ use serde_json::Value;
 use std::boxed::Box;
 use std::collections::VecDeque;
 use std::error::Error;
+use std::fs::File;
 use std::io::{Read, Write};
+use std::path::PathBuf;
+use structopt::*;
+
+#[derive(Clone, Debug, StructOpt)]
+#[structopt(name = "jindex")]
+struct Options {
+    #[structopt(parse(from_str))]
+    json_location: Option<PathBuf>,
+}
 
 fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Box<dyn Error>> {
     let mut q: VecDeque<(Vec<serde_json::Value>, serde_json::Value)> = VecDeque::new();
@@ -78,9 +88,15 @@ fn write_path<W: Write>(
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let options = Options::from_args();
     let mut buf = String::new();
 
-    std::io::stdin().read_to_string(&mut buf)?;
+    if let Some(json_location) = options.json_location {
+        let mut f = File::open(json_location)?;
+        f.read_to_string(&mut buf)?;
+    } else {
+        std::io::stdin().read_to_string(&mut buf)?;
+    };
 
     let v: Value = serde_json::from_str(&buf)?;
 
