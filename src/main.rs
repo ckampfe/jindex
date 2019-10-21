@@ -81,7 +81,7 @@ fn write_path<W: Write>(
         writer,
         "{} => {}",
         result_string,
-        serde_json::to_string(&value).unwrap()
+        serde_json::to_string(&value)?
     )?;
 
     Ok(())
