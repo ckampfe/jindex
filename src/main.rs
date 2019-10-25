@@ -27,10 +27,15 @@ fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Bo
                     let mut cloned_path = path.clone();
                     cloned_path.push(Rc::new(Value::String(k)));
 
+                    let is_array_or_object = v.is_object() || v.is_array();
+
                     let path_value = (cloned_path, v);
 
                     write_path(&path_value, writer)?;
-                    q.push_back(path_value)
+
+                    if is_array_or_object {
+                        q.push_back(path_value)
+                    }
                 }
             }
             serde_json::Value::Array(a) => {
@@ -41,10 +46,15 @@ fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Bo
                         serde_json::Number::from_f64(i as f64).unwrap(),
                     )));
 
+                    let is_array_or_object = v.is_object() || v.is_array();
+
                     let path_value = (cloned_path, v);
 
                     write_path(&path_value, writer)?;
-                    q.push_back(path_value)
+
+                    if is_array_or_object {
+                        q.push_back(path_value)
+                    }
                 }
             }
             _ => (),
