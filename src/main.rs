@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::rc::Rc;
 use structopt::*;
 
 #[derive(Clone, Debug, StructOpt)]
@@ -15,7 +16,7 @@ struct Options {
 }
 
 fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Box<dyn Error>> {
-    let mut q: VecDeque<(Vec<serde_json::Value>, serde_json::Value)> = VecDeque::new();
+    let mut q: VecDeque<(Vec<Rc<serde_json::Value>>, serde_json::Value)> = VecDeque::new();
 
     q.push_back((vec![], json));
 
@@ -24,26 +25,26 @@ fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Bo
             serde_json::Value::Object(m) => {
                 for (k, v) in m {
                     let mut cloned_path = path.clone();
-                    cloned_path.push(Value::String(k));
+                    cloned_path.push(Rc::new(Value::String(k)));
 
-                    let cloned = (cloned_path, v);
+                    let path_value = (cloned_path, v);
 
-                    write_path(&cloned, writer)?;
-                    q.push_back(cloned)
+                    write_path(&path_value, writer)?;
+                    q.push_back(path_value)
                 }
             }
             serde_json::Value::Array(a) => {
-                for (i, e) in a.into_iter().enumerate() {
+                for (i, v) in a.into_iter().enumerate() {
                     let mut cloned_path = path.clone();
 
-                    cloned_path.push(Value::Number(
+                    cloned_path.push(Rc::new(Value::Number(
                         serde_json::Number::from_f64(i as f64).unwrap(),
-                    ));
+                    )));
 
-                    let cloned = (cloned_path, e);
+                    let path_value = (cloned_path, v);
 
-                    write_path(&cloned, writer)?;
-                    q.push_back(cloned)
+                    write_path(&path_value, writer)?;
+                    q.push_back(path_value)
                 }
             }
             _ => (),
@@ -54,14 +55,14 @@ fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Bo
 }
 
 fn write_path<W: Write>(
-    path_value: &(Vec<serde_json::Value>, serde_json::Value),
+    path_value: &(Vec<Rc<serde_json::Value>>, serde_json::Value),
     writer: &mut W,
 ) -> Result<(), Box<dyn Error>> {
     let (path, value) = path_value;
 
     let initial_string = String::new();
 
-    let mapped_path = path.iter().fold(initial_string, |acc, item| match item {
+    let mapped_path = path.iter().fold(initial_string, |acc, item| match &**item {
         serde_json::Value::String(s) => {
             if acc.is_empty() {
                 format!("{}\"{}\"", acc, s.to_string())
