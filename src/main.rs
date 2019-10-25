@@ -109,3 +109,45 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_simple_document() {
+        let v: Value = serde_json::json!(
+            {
+                "a": 1,
+                "b": 2,
+                "c": ["x", "y", "z"],
+                "d": {"e": {"f": [{}, 9, "g"]}}
+            }
+
+        );
+        let mut writer = vec![];
+        build_and_write_paths(v, &mut writer).unwrap();
+
+        assert_eq!(
+            std::str::from_utf8(&writer)
+                .unwrap()
+                .split("\n")
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>(),
+            vec![
+                r#"["a"] => 1"#,
+                r#"["b"] => 2"#,
+                r#"["c"] => ["x","y","z"]"#,
+                r#"["d"] => {"e":{"f":[{},9,"g"]}}"#,
+                r#"["c", 0] => "x""#,
+                r#"["c", 1] => "y""#,
+                r#"["c", 2] => "z""#,
+                r#"["d", "e"] => {"f":[{},9,"g"]}"#,
+                r#"["d", "e", "f"] => [{},9,"g"]"#,
+                r#"["d", "e", "f", 0] => {}"#,
+                r#"["d", "e", "f", 1] => 9"#,
+                r#"["d", "e", "f", 2] => "g""#,
+            ]
+        )
+    }
+}
