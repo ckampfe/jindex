@@ -72,30 +72,40 @@ fn write_path<W: Write>(
 
     let initial_string = String::new();
 
-    let mapped_path = path.iter().fold(initial_string, |acc, item| match &**item {
-        serde_json::Value::String(s) => {
-            if acc.is_empty() {
-                format!("{}\"{}\"", acc, s.to_string())
-            } else {
-                format!("{}, \"{}\"", acc, s.to_string())
+    let mapped_path = path
+        .iter()
+        .fold(initial_string, |mut acc, item| match &**item {
+            serde_json::Value::String(s) => {
+                if acc.is_empty() {
+                    acc.push_str("\"");
+                    acc.push_str(s);
+                    acc.push_str("\"");
+                    acc
+                } else {
+                    acc.push_str(", ");
+                    acc.push_str("\"");
+                    acc.push_str(s);
+                    acc.push_str("\"");
+                    acc
+                }
             }
-        }
-        serde_json::Value::Number(n) => {
-            if acc.is_empty() {
-                format!("{}{}", acc, n.as_f64().unwrap())
-            } else {
-                format!("{}, {}", acc, n.as_f64().unwrap())
+            serde_json::Value::Number(n) => {
+                if acc.is_empty() {
+                    acc.push_str(&n.as_f64().unwrap().to_string());
+                    acc
+                } else {
+                    acc.push_str(", ");
+                    acc.push_str(&n.as_f64().unwrap().to_string());
+                    acc
+                }
             }
-        }
-        _ => panic!("JSON path items must be numbers or strings"),
-    });
-
-    let result_string = format!("[{}]", mapped_path);
+            _ => panic!("JSON path items must be numbers or strings"),
+        });
 
     writeln!(
         writer,
-        "{} => {}",
-        result_string,
+        "[{}] => {}",
+        mapped_path,
         serde_json::to_string(&value)?
     )?;
 
