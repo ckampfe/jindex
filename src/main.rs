@@ -57,7 +57,7 @@ fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Bo
                     }
                 }
             }
-            _ => (),
+            _ => panic!("Only arrays and objects should be in the queue"),
         }
     }
 
