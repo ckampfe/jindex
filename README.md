@@ -1,6 +1,8 @@
 jindex
 ===
 
+[![CircleCI](https://circleci.com/gh/ckampfe/jindex.svg?style=svg)](https://circleci.com/gh/ckampfe/jindex)
+
 ## Installation
 
 ```
