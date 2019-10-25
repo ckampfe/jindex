@@ -3,7 +3,7 @@ use std::boxed::Box;
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{BufReader, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
 use structopt::*;
@@ -94,16 +94,14 @@ fn write_path<W: Write>(
 
 fn main() -> Result<(), Box<dyn Error>> {
     let options = Options::from_args();
-    let mut buf = String::new();
 
-    if let Some(json_location) = options.json_location {
-        let mut f = File::open(json_location)?;
-        f.read_to_string(&mut buf)?;
+    let v: Value = if let Some(json_location) = options.json_location {
+        let f = File::open(json_location)?;
+        let buf = BufReader::new(f);
+        serde_json::from_reader(buf)?
     } else {
-        std::io::stdin().read_to_string(&mut buf)?;
+        serde_json::from_reader(std::io::stdin())?
     };
-
-    let v: Value = serde_json::from_str(&buf)?;
 
     let mut stdout = std::io::stdout();
 
