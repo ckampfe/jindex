@@ -20,10 +20,10 @@ struct Options {
     json_location: Option<PathBuf>,
 }
 
-fn build_and_write_paths<'a, W: Write>(
+fn build_and_write_paths<W: Write>(
     json: Value,
     writer: &mut W,
-    write_pred: Box<dyn Fn(&serde_json::Value) -> bool + 'a>,
+    write_pred: Box<dyn Fn(&serde_json::Value) -> bool>,
 ) -> Result<(), Box<dyn Error>> {
     let mut q: VecDeque<(Vec<Rc<serde_json::Value>>, serde_json::Value)> = VecDeque::new();
 
