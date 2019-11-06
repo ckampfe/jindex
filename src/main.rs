@@ -11,11 +11,20 @@ use structopt::*;
 #[derive(Clone, Debug, StructOpt)]
 #[structopt(name = "jindex")]
 struct Options {
+    /// Write all path values, including composite ones
+    #[structopt(short, long)]
+    all: bool,
+
+    /// A JSON file path
     #[structopt(parse(from_str))]
     json_location: Option<PathBuf>,
 }
 
-fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Box<dyn Error>> {
+fn build_and_write_paths<'a, W: Write>(
+    json: Value,
+    writer: &mut W,
+    write_pred: Box<dyn Fn(&serde_json::Value) -> bool + 'a>,
+) -> Result<(), Box<dyn Error>> {
     let mut q: VecDeque<(Vec<Rc<serde_json::Value>>, serde_json::Value)> = VecDeque::new();
 
     q.push_back((vec![], json));
@@ -29,9 +38,13 @@ fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Bo
 
                     let is_array_or_object = v.is_object() || v.is_array();
 
+                    let should_write = write_pred(&v);
+
                     let path_value = (cloned_path, v);
 
-                    write_path(&path_value, writer)?;
+                    if should_write {
+                        write_path(&path_value, writer)?;
+                    }
 
                     if is_array_or_object {
                         q.push_back(path_value)
@@ -48,9 +61,13 @@ fn build_and_write_paths<W: Write>(json: Value, writer: &mut W) -> Result<(), Bo
 
                     let is_array_or_object = v.is_object() || v.is_array();
 
+                    let should_write = write_pred(&v);
+
                     let path_value = (cloned_path, v);
 
-                    write_path(&path_value, writer)?;
+                    if should_write {
+                        write_path(&path_value, writer)?;
+                    }
 
                     if is_array_or_object {
                         q.push_back(path_value)
@@ -125,7 +142,23 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut stdout = std::io::stdout();
 
-    build_and_write_paths(v, &mut stdout)?;
+    let only_terminals: Box<dyn Fn(&serde_json::Value) -> bool> =
+        Box::new(|v: &serde_json::Value| match v {
+            serde_json::Value::Array(v) => v.is_empty(),
+            serde_json::Value::Object(m) => m.is_empty(),
+            _ => true,
+        });
+
+    let all_terms: Box<dyn Fn(&serde_json::Value) -> bool> =
+        Box::new(|_v: &serde_json::Value| true);
+
+    let write_pred = if options.all {
+        all_terms
+    } else {
+        only_terminals
+    };
+
+    build_and_write_paths(v, &mut stdout, write_pred)?;
 
     Ok(())
 }
@@ -146,7 +179,7 @@ mod tests {
 
         );
         let mut writer = vec![];
-        build_and_write_paths(v, &mut writer).unwrap();
+        build_and_write_paths(v, &mut writer, Box::new(|_| true)).unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
@@ -167,6 +200,49 @@ mod tests {
                 r#"["d", "e", "f", 0] => {}"#,
                 r#"["d", "e", "f", 1] => 9"#,
                 r#"["d", "e", "f", 2] => "g""#,
+            ]
+        )
+    }
+
+    #[test]
+    fn only_terminals() {
+        let v: Value = serde_json::json!(
+            {
+                "a": 1,
+                "b": 2,
+                "c": ["x", "y", "z"],
+                "d": {"e": {"f": [{}, 9, "g", []]}}
+            }
+
+        );
+        let mut writer = vec![];
+        build_and_write_paths(
+            v,
+            &mut writer,
+            Box::new(|v: &serde_json::Value| match v {
+                serde_json::Value::Array(v) => v.is_empty(),
+                serde_json::Value::Object(m) => m.is_empty(),
+                _ => true,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(
+            std::str::from_utf8(&writer)
+                .unwrap()
+                .split("\n")
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>(),
+            vec![
+                r#"["a"] => 1"#,
+                r#"["b"] => 2"#,
+                r#"["c", 0] => "x""#,
+                r#"["c", 1] => "y""#,
+                r#"["c", 2] => "z""#,
+                r#"["d", "e", "f", 0] => {}"#,
+                r#"["d", "e", "f", 1] => 9"#,
+                r#"["d", "e", "f", 2] => "g""#,
+                r#"["d", "e", "f", 3] => []"#,
             ]
         )
     }
