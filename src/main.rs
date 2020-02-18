@@ -23,7 +23,7 @@ struct Options {
 fn build_and_write_paths<W: Write>(
     json: Value,
     writer: &mut W,
-    write_pred: Box<dyn Fn(&serde_json::Value) -> bool>,
+    write_pred: impl Fn(&serde_json::Value) -> bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut q: VecDeque<(Vec<Rc<serde_json::Value>>, serde_json::Value)> = VecDeque::new();
 
@@ -142,23 +142,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut stdout = std::io::stdout();
 
-    let only_terminals: Box<dyn Fn(&serde_json::Value) -> bool> =
-        Box::new(|v: &serde_json::Value| match v {
+    if options.all {
+        build_and_write_paths(v, &mut stdout, |_v: &serde_json::Value| true)?;
+    } else {
+        build_and_write_paths(v, &mut stdout, |v: &serde_json::Value| match v {
             serde_json::Value::Array(v) => v.is_empty(),
             serde_json::Value::Object(m) => m.is_empty(),
             _ => true,
-        });
-
-    let all_terms: Box<dyn Fn(&serde_json::Value) -> bool> =
-        Box::new(|_v: &serde_json::Value| true);
-
-    let write_pred = if options.all {
-        all_terms
-    } else {
-        only_terminals
-    };
-
-    build_and_write_paths(v, &mut stdout, write_pred)?;
+        })?;
+    }
 
     Ok(())
 }
@@ -179,7 +171,7 @@ mod tests {
 
         );
         let mut writer = vec![];
-        build_and_write_paths(v, &mut writer, Box::new(|_| true)).unwrap();
+        build_and_write_paths(v, &mut writer, |_| true).unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
