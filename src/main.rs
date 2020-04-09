@@ -18,12 +18,17 @@ struct Options {
     /// A JSON file path
     #[structopt(parse(from_str))]
     json_location: Option<PathBuf>,
+
+    /// Separator string, defaults to tab
+    #[structopt(default_value = "\t", short, long)]
+    separator: String,
 }
 
 fn build_and_write_paths<W: Write>(
     json: Value,
     writer: &mut W,
     write_pred: impl Fn(&serde_json::Value) -> bool,
+    separator: &str,
 ) -> Result<(), Box<dyn Error>> {
     let mut q: VecDeque<(Vec<Rc<serde_json::Value>>, serde_json::Value)> = VecDeque::new();
 
@@ -43,7 +48,7 @@ fn build_and_write_paths<W: Write>(
                     let path_value = (cloned_path, v);
 
                     if should_write {
-                        write_path(&path_value, writer)?;
+                        write_path(&path_value, writer, separator)?;
                     }
 
                     if is_array_or_object {
@@ -66,7 +71,7 @@ fn build_and_write_paths<W: Write>(
                     let path_value = (cloned_path, v);
 
                     if should_write {
-                        write_path(&path_value, writer)?;
+                        write_path(&path_value, writer, separator)?;
                     }
 
                     if is_array_or_object {
@@ -84,6 +89,7 @@ fn build_and_write_paths<W: Write>(
 fn write_path<W: Write>(
     path_value: &(Vec<Rc<serde_json::Value>>, serde_json::Value),
     writer: &mut W,
+    separator: &str,
 ) -> Result<(), Box<dyn Error>> {
     let (path, value) = path_value;
 
@@ -121,8 +127,9 @@ fn write_path<W: Write>(
 
     writeln!(
         writer,
-        "[{}] => {}",
+        "[{}]{}{}",
         mapped_path,
+        separator,
         serde_json::to_string(&value)?
     )?;
 
@@ -140,16 +147,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         serde_json::from_reader(std::io::stdin())?
     };
 
+    let separator = &options.separator;
+
     let mut stdout = std::io::stdout();
 
     if options.all {
-        build_and_write_paths(v, &mut stdout, |_v: &serde_json::Value| true)?;
+        build_and_write_paths(v, &mut stdout, |_v: &serde_json::Value| true, separator)?;
     } else {
-        build_and_write_paths(v, &mut stdout, |v: &serde_json::Value| match v {
-            serde_json::Value::Array(v) => v.is_empty(),
-            serde_json::Value::Object(m) => m.is_empty(),
-            _ => true,
-        })?;
+        build_and_write_paths(
+            v,
+            &mut stdout,
+            |v: &serde_json::Value| match v {
+                serde_json::Value::Array(v) => v.is_empty(),
+                serde_json::Value::Object(m) => m.is_empty(),
+                _ => true,
+            },
+            separator,
+        )?;
     }
 
     Ok(())
@@ -171,7 +185,7 @@ mod tests {
 
         );
         let mut writer = vec![];
-        build_and_write_paths(v, &mut writer, |_| true).unwrap();
+        build_and_write_paths(v, &mut writer, |_| true, " => ").unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
@@ -216,6 +230,7 @@ mod tests {
                 serde_json::Value::Object(m) => m.is_empty(),
                 _ => true,
             }),
+            " => ",
         )
         .unwrap();
 
