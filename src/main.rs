@@ -60,9 +60,7 @@ fn build_and_write_paths<W: Write>(
                 for (i, v) in a.into_iter().enumerate() {
                     let mut cloned_path = path.clone();
 
-                    cloned_path.push(Rc::new(Value::Number(
-                        serde_json::Number::from_f64(i as f64).unwrap(),
-                    )));
+                    cloned_path.push(Rc::new(Value::Number(serde_json::Number::from(i))));
 
                     let is_array_or_object = v.is_object() || v.is_array();
 
