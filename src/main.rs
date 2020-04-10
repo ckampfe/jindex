@@ -5,7 +5,6 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::PathBuf;
-use std::rc::Rc;
 use structopt::*;
 
 #[derive(Clone, Debug, StructOpt)]
@@ -33,14 +32,14 @@ enum StringOrIndex<'a> {
 struct PathNode<'a> {
     value: &'a serde_json::Value,
     path_value: StringOrIndex<'a>,
-    parent: Option<Rc<PathNode<'a>>>,
+    parent: Option<usize>,
 }
 
 impl<'a> PathNode<'a> {
     fn new(
         value: &'a serde_json::Value,
         path_value: StringOrIndex<'a>,
-        parent: Option<Rc<PathNode<'a>>>,
+        parent: Option<usize>,
     ) -> Self {
         Self {
             value,
@@ -49,15 +48,17 @@ impl<'a> PathNode<'a> {
         }
     }
 
-    fn compute_path(&self) -> VecDeque<&PathNode> {
+    fn compute_path(&self, pathnodes: &'a Vec<PathNode>) -> VecDeque<&'a StringOrIndex> {
         let mut path = VecDeque::new();
 
-        path.push_front(self);
+        path.push_front(&self.path_value);
 
-        let mut this_parent: &Option<Rc<PathNode>> = &self.parent;
+        let mut this_parent: &Option<usize> = &self.parent;
 
         while let Some(parent) = this_parent {
-            path.push_front(parent);
+            let parent = &pathnodes[*parent];
+            let path_value = &parent.path_value;
+            path.push_front(&path_value);
             this_parent = &parent.parent;
         }
 
@@ -66,54 +67,71 @@ impl<'a> PathNode<'a> {
 }
 
 fn build_and_write_paths<W: Write>(
-    json: Value,
     writer: &mut W,
-    write_pred: impl Fn(&serde_json::Value) -> bool,
+    json: Value,
+    should_write_all: bool,
     separator: &str,
+    separator_len: usize,
 ) -> Result<(), Box<dyn Error>> {
-    let mut q: VecDeque<Rc<PathNode>> = VecDeque::new();
+    let mut traversal_queue: VecDeque<PathNode> = VecDeque::new();
 
-    let root = Rc::new(PathNode::new(&json, StringOrIndex::None, None));
+    let mut pathnodes: Vec<PathNode> = Vec::new();
 
-    q.push_back(root);
+    let root_pathnode = PathNode::new(&json, StringOrIndex::None, None);
 
-    while let Some(path_node) = q.pop_front() {
-        let path_node: Rc<PathNode> = path_node;
+    traversal_queue.push_back(root_pathnode);
 
-        match &path_node.value {
+    while let Some(parent_path_node) = traversal_queue.pop_front() {
+        match &parent_path_node.value {
             serde_json::Value::Object(m) => {
+                pathnodes.push(parent_path_node);
+
+                let parent_idx = pathnodes.len() - 1;
+
                 for (k, v) in m {
-                    let new_pathnode =
-                        PathNode::new(v, StringOrIndex::String(k), Some(path_node.clone()));
+                    let child_pathnode =
+                        PathNode::new(v, StringOrIndex::String(k), Some(parent_idx));
 
-                    let is_array_or_object = v.is_object() || v.is_array();
+                    let is_empty_composite_or_is_scalar = is_empty_composite_or_scalar(v);
 
-                    let should_write = write_pred(&v);
-
-                    if should_write {
-                        write_path(&new_pathnode, writer, separator)?;
+                    if is_empty_composite_or_is_scalar || should_write_all {
+                        write_path(
+                            writer,
+                            &child_pathnode,
+                            separator,
+                            separator_len,
+                            &pathnodes,
+                        )?;
                     }
 
-                    if is_array_or_object {
-                        q.push_back(Rc::new(new_pathnode));
+                    if !is_empty_composite_or_is_scalar {
+                        traversal_queue.push_back(child_pathnode);
                     }
                 }
             }
             serde_json::Value::Array(a) => {
+                pathnodes.push(parent_path_node);
+
+                let parent_idx = pathnodes.len() - 1;
+
                 for (i, v) in a.iter().enumerate() {
-                    let new_pathnode =
-                        PathNode::new(v, StringOrIndex::Index(i), Some(path_node.clone()));
+                    let child_pathnode =
+                        PathNode::new(v, StringOrIndex::Index(i), Some(parent_idx));
 
-                    let is_array_or_object = v.is_object() || v.is_array();
+                    let is_empty_composite_or_is_scalar = is_empty_composite_or_scalar(v);
 
-                    let should_write = write_pred(&v);
-
-                    if should_write {
-                        write_path(&new_pathnode, writer, separator)?;
+                    if is_empty_composite_or_is_scalar || should_write_all {
+                        write_path(
+                            writer,
+                            &child_pathnode,
+                            separator,
+                            separator_len,
+                            &pathnodes,
+                        )?;
                     }
 
-                    if is_array_or_object {
-                        q.push_back(Rc::new(new_pathnode))
+                    if !is_empty_composite_or_is_scalar {
+                        traversal_queue.push_back(child_pathnode)
                     }
                 }
             }
@@ -125,44 +143,47 @@ fn build_and_write_paths<W: Write>(
 }
 
 fn write_path<W: Write>(
-    pathnode: &PathNode,
     writer: &mut W,
+    pathnode: &PathNode,
     separator: &str,
+    separator_len: usize,
+    pathnodes: &Vec<PathNode>,
 ) -> Result<(), Box<dyn Error>> {
     let value = &pathnode.value;
-    let path = pathnode.compute_path();
 
-    let initial_string = String::new();
+    let path = pathnode.compute_path(pathnodes);
 
-    let mapped_path = path
-        .iter()
-        .fold(initial_string, |mut acc, item| match &item.path_value {
+    let path_len = path.len();
+
+    let separator_bytes = separator_len * (path_len - 1);
+
+    let mut mapped_path = String::with_capacity(path_len + separator_bytes);
+
+    for item in path {
+        match &item {
             StringOrIndex::String(s) => {
-                if acc.is_empty() {
-                    acc.push_str("\"");
-                    acc.push_str(&s);
-                    acc.push_str("\"");
-                    acc
+                if mapped_path.is_empty() {
+                    mapped_path.push_str("\"");
+                    mapped_path.push_str(&s);
+                    mapped_path.push_str("\"");
                 } else {
-                    acc.push_str(", ");
-                    acc.push_str("\"");
-                    acc.push_str(&s);
-                    acc.push_str("\"");
-                    acc
+                    mapped_path.push_str(", ");
+                    mapped_path.push_str("\"");
+                    mapped_path.push_str(&s);
+                    mapped_path.push_str("\"");
                 }
             }
             StringOrIndex::Index(n) => {
-                if acc.is_empty() {
-                    acc.push_str(&n.to_string());
-                    acc
+                if mapped_path.is_empty() {
+                    mapped_path.push_str(&n.to_string());
                 } else {
-                    acc.push_str(", ");
-                    acc.push_str(&n.to_string());
-                    acc
+                    mapped_path.push_str(", ");
+                    mapped_path.push_str(&n.to_string());
                 }
             }
-            StringOrIndex::None => acc,
-        });
+            StringOrIndex::None => (),
+        }
+    }
 
     writeln!(
         writer,
@@ -173,6 +194,15 @@ fn write_path<W: Write>(
     )?;
 
     Ok(())
+}
+
+#[inline(always)]
+fn is_empty_composite_or_scalar(v: &serde_json::Value) -> bool {
+    match v {
+        serde_json::Value::Array(v) => v.is_empty(),
+        serde_json::Value::Object(m) => m.is_empty(),
+        _ => true,
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -188,23 +218,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let separator = &options.separator;
 
+    let separator_len = separator.len();
+
     let stdout = std::io::stdout();
     let mut lock = BufWriter::new(stdout.lock());
 
-    if options.all {
-        build_and_write_paths(v, &mut lock, |_v: &serde_json::Value| true, separator)?;
-    } else {
-        build_and_write_paths(
-            v,
-            &mut lock,
-            |v: &serde_json::Value| match v {
-                serde_json::Value::Array(v) => v.is_empty(),
-                serde_json::Value::Object(m) => m.is_empty(),
-                _ => true,
-            },
-            separator,
-        )?;
-    }
+    build_and_write_paths(&mut lock, v, options.all, separator, separator_len)?;
 
     Ok(())
 }
@@ -225,7 +244,7 @@ mod tests {
 
         );
         let mut writer = vec![];
-        build_and_write_paths(v, &mut writer, |_| true, " => ").unwrap();
+        build_and_write_paths(&mut writer, v, true, " => ", 4).unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
@@ -262,17 +281,7 @@ mod tests {
 
         );
         let mut writer = vec![];
-        build_and_write_paths(
-            v,
-            &mut writer,
-            Box::new(|v: &serde_json::Value| match v {
-                serde_json::Value::Array(v) => v.is_empty(),
-                serde_json::Value::Object(m) => m.is_empty(),
-                _ => true,
-            }),
-            " => ",
-        )
-        .unwrap();
+        build_and_write_paths(&mut writer, v, false, " => ", 4).unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
