@@ -45,28 +45,25 @@ fn build_and_write_paths<W: Write>(
 ) -> Result<(), Box<dyn Error>> {
     let mut traversal_queue: VecDeque<PathValue> = VecDeque::new();
 
-    let root_strpath = PathValue::new(&json, PATH_SEPARATOR.to_string());
+    let root_pathvalue = PathValue::new(&json, PATH_SEPARATOR.to_string());
 
-    traversal_queue.push_back(root_strpath);
+    traversal_queue.push_back(root_pathvalue);
 
     let mut i_memo = vec![];
 
-    while let Some(parent_strpath) = traversal_queue.pop_front() {
-        match &parent_strpath.value {
+    while let Some(parent_pathvalue) = traversal_queue.pop_front() {
+        match &parent_pathvalue.value {
             serde_json::Value::Object(m) => {
                 for (k, v) in m {
-                    let child_path_str = build_child_path(&parent_strpath.path, &k);
-
-                    let child_strpath = PathValue::new(v, child_path_str);
-
-                    let is_empty_composite_or_is_scalar = is_empty_composite_or_scalar(v);
-
-                    if is_empty_composite_or_is_scalar || should_write_all {
-                        write_path(writer, &child_strpath, separator)?;
-                    }
-
-                    if !is_empty_composite_or_is_scalar {
-                        traversal_queue.push_back(child_strpath);
+                    if let Some(child_pathvalue) = build_and_write_path(
+                        writer,
+                        k,
+                        v,
+                        &parent_pathvalue,
+                        should_write_all,
+                        separator,
+                    )? {
+                        traversal_queue.push_back(child_pathvalue);
                     }
                 }
             }
@@ -85,18 +82,15 @@ fn build_and_write_paths<W: Write>(
                         }
                     };
 
-                    let child_path_str = build_child_path(&parent_strpath.path, &istr);
-
-                    let child_strpath = PathValue::new(v, child_path_str);
-
-                    let is_empty_composite_or_is_scalar = is_empty_composite_or_scalar(v);
-
-                    if is_empty_composite_or_is_scalar || should_write_all {
-                        write_path(writer, &child_strpath, separator)?;
-                    }
-
-                    if !is_empty_composite_or_is_scalar {
-                        traversal_queue.push_back(child_strpath)
+                    if let Some(child_pathvalue) = build_and_write_path(
+                        writer,
+                        istr,
+                        v,
+                        &parent_pathvalue,
+                        should_write_all,
+                        separator,
+                    )? {
+                        traversal_queue.push_back(child_pathvalue);
                     }
                 }
             }
@@ -107,17 +101,43 @@ fn build_and_write_paths<W: Write>(
     Ok(())
 }
 
+// Returns either a nonempty composite (object or array) for
+// further recursion, or None if type is not a nonempty composite.
+// Is a Result because `write_path` IO can fail.
+fn build_and_write_path<'a, W: Write>(
+    writer: &mut W,
+    k: &str,
+    v: &'a Value,
+    parent_pathvalue: &PathValue,
+    should_write_all: bool,
+    separator: &str,
+) -> Result<Option<PathValue<'a>>, Box<dyn Error>> {
+    let child_path = build_child_path(&parent_pathvalue.path, k);
+
+    let child_pathvalue = PathValue::new(v, child_path);
+
+    let is_empty_composite_or_is_scalar = is_empty_composite_or_scalar(v);
+
+    if is_empty_composite_or_is_scalar || should_write_all {
+        write_path(writer, &child_pathvalue, separator)?;
+    }
+
+    if !is_empty_composite_or_is_scalar {
+        Ok(Some(child_pathvalue))
+    } else {
+        Ok(None)
+    }
+}
+
 fn build_child_path(parent_path: &str, child_path_value: &str) -> String {
     if parent_path != PATH_SEPARATOR {
         let mut child_path = String::with_capacity(parent_path.len() + 1 + child_path_value.len());
-
         child_path.push_str(&parent_path);
         child_path.push_str(PATH_SEPARATOR);
         child_path.push_str(child_path_value);
         child_path
     } else {
         let mut child_path = String::with_capacity(parent_path.len() + child_path_value.len());
-
         child_path.push_str(&parent_path);
         child_path.push_str(child_path_value);
         child_path
@@ -126,15 +146,15 @@ fn build_child_path(parent_path: &str, child_path_value: &str) -> String {
 
 fn write_path<W: Write>(
     writer: &mut W,
-    strpath: &PathValue,
+    pathvalue: &PathValue,
     separator: &str,
 ) -> Result<(), Box<dyn Error>> {
     writeln!(
         writer,
         "{}{}{}",
-        strpath.path,
+        pathvalue.path,
         separator,
-        serde_json::to_string(&strpath.value)?
+        serde_json::to_string(&pathvalue.value)?
     )?;
 
     Ok(())
