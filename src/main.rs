@@ -1,3 +1,7 @@
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
+
 use serde_json::Value;
 use std::boxed::Box;
 use std::collections::VecDeque;

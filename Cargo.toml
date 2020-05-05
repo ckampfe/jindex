@@ -5,8 +5,12 @@ authors = ["Clark Kampfe <clark.kampfe@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+jemalloc = { package = "jemallocator", version = "0.3", optional = true }
 serde_json = "1.0"
 structopt = "0.3"
+
+[features]
+default = ["jemalloc"]
 
 [profile.release]
 opt-level = 3

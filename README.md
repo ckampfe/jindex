@@ -92,7 +92,33 @@ ARGS:
     <json-location>    A JSON file path
 ```
 
-Benchmark:
+## Benchmark
+
+With jemalloc (enabled by default):
+
+```
+$ ls -la ~/code/sf-city-lots-json/citylots.json
+.rw-r--r-- 189M clark  9 Apr 15:52 /Users/clark/code/sf-city-lots-json/citylots.json
+
+$ /usr/bin/time -l jindex ~/code/sf-city-lots-json/citylots.json > /dev/null
+        3.84 real         3.34 user         0.48 sys
+1266814976  maximum resident set size
+         0  average shared memory size
+         0  average unshared data size
+         0  average unshared stack size
+    310071  page reclaims
+       123  page faults
+         0  swaps
+         0  block input operations
+         0  block output operations
+         0  messages sent
+         0  messages received
+         0  signals received
+         1  voluntary context switches
+       921  involuntary context switches
+```
+
+Without jemalloc:
 
 ```
 $ ls -la ~/code/sf-city-lots-json/citylots.json
@@ -116,3 +142,7 @@ $ /usr/bin/time -l jindex ~/code/sf-city-lots-json/citylots.json > /dev/null
        934  involuntary context switches
 ```
 
+## Features
+
+`jindex` uses [jemalloc](http://jemalloc.net/) by default for a substantial increase in throughput.
+If you do not wish to use jemalloc, you can build without it by passing the `--no-default-features` flag to Cargo.
