@@ -32,24 +32,25 @@ struct Options {
 
 struct PathValue<'a> {
     value: &'a serde_json::Value,
-    path: String,
+    // https://users.rust-lang.org/t/use-case-for-box-str-and-string/8295
+    path: Box<str>,
 }
 
 impl<'a> PathValue<'a> {
-    fn new(value: &'a serde_json::Value, path: String) -> Self {
+    fn new(value: &'a serde_json::Value, path: Box<str>) -> Self {
         Self { value, path }
     }
 }
 
 fn build_and_write_paths<W: Write>(
     writer: &mut W,
-    json: Value,
+    json: &Value,
     should_write_all: bool,
     separator: &str,
 ) -> Result<(), Box<dyn Error>> {
     let mut traversal_queue: VecDeque<PathValue> = VecDeque::new();
 
-    let root_pathvalue = PathValue::new(&json, PATH_SEPARATOR.to_string());
+    let root_pathvalue = PathValue::new(&json, PATH_SEPARATOR.to_string().into_boxed_str());
 
     traversal_queue.push_back(root_pathvalue);
 
@@ -59,14 +60,16 @@ fn build_and_write_paths<W: Write>(
         match &parent_pathvalue.value {
             serde_json::Value::Object(m) => {
                 for (k, v) in m {
-                    if let Some(child_pathvalue) = build_and_write_path(
+                    let maybe_child_pathvalue = build_and_write_path(
                         writer,
                         k,
                         v,
                         &parent_pathvalue,
                         should_write_all,
                         separator,
-                    )? {
+                    )?;
+
+                    if let Some(child_pathvalue) = maybe_child_pathvalue {
                         traversal_queue.push_back(child_pathvalue);
                     }
                 }
@@ -76,7 +79,7 @@ fn build_and_write_paths<W: Write>(
                     let istr = match i_memo.get(i) {
                         Some(istr) => istr,
                         None => {
-                            let istr: String = i.to_string();
+                            let istr = i.to_string().into_boxed_str();
                             i_memo.push(istr);
                             // we call back into the vec to the the istr
                             // we just created because we must have the
@@ -86,14 +89,16 @@ fn build_and_write_paths<W: Write>(
                         }
                     };
 
-                    if let Some(child_pathvalue) = build_and_write_path(
+                    let maybe_child_pathvalue = build_and_write_path(
                         writer,
                         istr,
                         v,
                         &parent_pathvalue,
                         should_write_all,
                         separator,
-                    )? {
+                    )?;
+
+                    if let Some(child_pathvalue) = maybe_child_pathvalue {
                         traversal_queue.push_back(child_pathvalue);
                     }
                 }
@@ -120,31 +125,29 @@ fn build_and_write_path<'a, W: Write>(
 
     let child_pathvalue = PathValue::new(v, child_path);
 
-    let is_empty_composite_or_is_scalar = is_empty_composite_or_scalar(v);
-
-    if is_empty_composite_or_is_scalar || should_write_all {
+    if is_terminal(v) {
         write_path(writer, &child_pathvalue, separator)?;
-    }
-
-    if !is_empty_composite_or_is_scalar {
+        Ok(None)
+    } else if should_write_all {
+        write_path(writer, &child_pathvalue, separator)?;
         Ok(Some(child_pathvalue))
     } else {
-        Ok(None)
+        Ok(Some(child_pathvalue))
     }
 }
 
-fn build_child_path(parent_path: &str, child_path_value: &str) -> String {
+fn build_child_path(parent_path: &str, child_path_value: &str) -> Box<str> {
     if parent_path != PATH_SEPARATOR {
         let mut child_path = String::with_capacity(parent_path.len() + 1 + child_path_value.len());
         child_path.push_str(&parent_path);
         child_path.push_str(PATH_SEPARATOR);
         child_path.push_str(child_path_value);
-        child_path
+        child_path.into_boxed_str()
     } else {
         let mut child_path = String::with_capacity(parent_path.len() + child_path_value.len());
         child_path.push_str(&parent_path);
         child_path.push_str(child_path_value);
-        child_path
+        child_path.into_boxed_str()
     }
 }
 
@@ -164,7 +167,9 @@ fn write_path<W: Write>(
     Ok(())
 }
 
-fn is_empty_composite_or_scalar(v: &serde_json::Value) -> bool {
+// a terminal is an empty object, an empty array,
+// or any other value
+fn is_terminal(v: &serde_json::Value) -> bool {
     match v {
         serde_json::Value::Array(v) => v.is_empty(),
         serde_json::Value::Object(m) => m.is_empty(),
@@ -191,7 +196,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let stdout = std::io::stdout();
     let mut lock = BufWriter::new(stdout.lock());
 
-    build_and_write_paths(&mut lock, v, options.all, separator)?;
+    build_and_write_paths(&mut lock, &v, options.all, separator)?;
 
     Ok(())
 }
@@ -212,7 +217,7 @@ mod tests {
 
         );
         let mut writer = vec![];
-        build_and_write_paths(&mut writer, v, true, "@@@").unwrap();
+        build_and_write_paths(&mut writer, &v, true, "@@@").unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
@@ -249,7 +254,7 @@ mod tests {
 
         );
         let mut writer = vec![];
-        build_and_write_paths(&mut writer, v, false, "@@@").unwrap();
+        build_and_write_paths(&mut writer, &v, false, "@@@").unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
