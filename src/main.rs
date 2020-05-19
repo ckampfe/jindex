@@ -50,7 +50,7 @@ fn build_and_write_paths<W: Write>(
 ) -> Result<(), Box<dyn Error>> {
     let mut traversal_queue: VecDeque<PathValue> = VecDeque::new();
 
-    let root_pathvalue = PathValue::new(&json, PATH_SEPARATOR.to_string().into_boxed_str());
+    let root_pathvalue = PathValue::new(&json, "".to_string().into_boxed_str());
 
     traversal_queue.push_back(root_pathvalue);
 
@@ -137,18 +137,11 @@ fn build_and_write_path<'a, W: Write>(
 }
 
 fn build_child_path(parent_path: &str, child_path_value: &str) -> Box<str> {
-    if parent_path != PATH_SEPARATOR {
-        let mut child_path = String::with_capacity(parent_path.len() + 1 + child_path_value.len());
-        child_path.push_str(&parent_path);
-        child_path.push_str(PATH_SEPARATOR);
-        child_path.push_str(child_path_value);
-        child_path.into_boxed_str()
-    } else {
-        let mut child_path = String::with_capacity(parent_path.len() + child_path_value.len());
-        child_path.push_str(&parent_path);
-        child_path.push_str(child_path_value);
-        child_path.into_boxed_str()
-    }
+    let mut child_path = String::with_capacity(parent_path.len() + 1 + child_path_value.len());
+    child_path.push_str(&parent_path);
+    child_path.push_str(PATH_SEPARATOR);
+    child_path.push_str(child_path_value);
+    child_path.into_boxed_str()
 }
 
 fn write_path<W: Write>(
