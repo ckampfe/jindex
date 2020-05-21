@@ -2,7 +2,6 @@
 #[global_allocator]
 static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
-use serde_json::Value;
 use std::boxed::Box;
 use std::collections::VecDeque;
 use std::convert::TryInto;
@@ -44,7 +43,7 @@ impl<'a> PathValue<'a> {
 
 fn build_and_write_paths<W: Write>(
     writer: &mut W,
-    json: &Value,
+    json: &serde_json::Value,
     should_write_all: bool,
     separator: &str,
 ) -> Result<(), Box<dyn Error>> {
@@ -116,7 +115,7 @@ fn build_and_write_paths<W: Write>(
 fn build_and_write_path<'a, W: Write>(
     writer: &mut W,
     k: &str,
-    v: &'a Value,
+    v: &'a serde_json::Value,
     parent_pathvalue: &PathValue,
     should_write_all: bool,
     separator: &str,
@@ -173,7 +172,7 @@ fn is_terminal(v: &serde_json::Value) -> bool {
 fn main() -> Result<(), Box<dyn Error>> {
     let options = Options::from_args();
 
-    let v: Value = if let Some(json_location) = options.json_location {
+    let v: serde_json::Value = if let Some(json_location) = options.json_location {
         let mut f = File::open(json_location)?;
         let len = f.metadata()?.len();
         let mut buf = Vec::with_capacity(len.try_into()?);
@@ -200,7 +199,7 @@ mod tests {
 
     #[test]
     fn a_simple_document() {
-        let v: Value = serde_json::json!(
+        let v: serde_json::Value = serde_json::json!(
             {
                 "a": 1,
                 "b": 2,
@@ -237,7 +236,7 @@ mod tests {
 
     #[test]
     fn only_terminals() {
-        let v: Value = serde_json::json!(
+        let v: serde_json::Value = serde_json::json!(
             {
                 "a": 1,
                 "b": 2,
