@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use structopt::*;
 
 const PATH_SEPARATOR: &str = "/";
+const NEWLINE: &str = "\n";
 
 #[derive(Clone, Debug, StructOpt)]
 #[structopt(name = "jindex")]
@@ -136,7 +137,8 @@ fn build_and_write_path<'a, W: Write>(
 }
 
 fn build_child_path(parent_path: &str, child_path_value: &str) -> Box<str> {
-    let mut child_path = String::with_capacity(parent_path.len() + 1 + child_path_value.len());
+    let mut child_path =
+        String::with_capacity(parent_path.len() + PATH_SEPARATOR.len() + child_path_value.len());
     child_path.push_str(&parent_path);
     child_path.push_str(PATH_SEPARATOR);
     child_path.push_str(child_path_value);
@@ -148,13 +150,18 @@ fn write_path<W: Write>(
     pathvalue: &PathValue,
     separator: &str,
 ) -> Result<(), Box<dyn Error>> {
-    writeln!(
-        writer,
-        "{}{}{}",
-        pathvalue.path,
-        separator,
-        serde_json::to_string(&pathvalue.value)?
-    )?;
+    let value_str = serde_json::to_string(&pathvalue.value)?;
+
+    let mut out = String::with_capacity(
+        pathvalue.path.len() + separator.len() + value_str.len() + NEWLINE.len(),
+    );
+
+    out.push_str(&pathvalue.path);
+    out.push_str(separator);
+    out.push_str(&value_str);
+    out.push_str(NEWLINE);
+
+    writer.write_all(out.as_bytes())?;
 
     Ok(())
 }
@@ -214,7 +221,7 @@ mod tests {
         assert_eq!(
             std::str::from_utf8(&writer)
                 .unwrap()
-                .split("\n")
+                .split(NEWLINE)
                 .filter(|s| !s.is_empty())
                 .collect::<Vec<&str>>(),
             vec![
@@ -251,7 +258,7 @@ mod tests {
         assert_eq!(
             std::str::from_utf8(&writer)
                 .unwrap()
-                .split("\n")
+                .split(NEWLINE)
                 .filter(|s| !s.is_empty())
                 .collect::<Vec<&str>>(),
             vec![
