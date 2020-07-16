@@ -195,6 +195,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let stdout = std::io::stdout();
     let mut lock = BufWriter::new(stdout.lock());
 
+    // https://github.com/rust-lang/rust/issues/46016
+    #[cfg(target_family = "unix")]
+    {
+        use nix::sys::signal;
+        let _ = unsafe { signal::signal(signal::Signal::SIGPIPE, signal::SigHandler::SigDfl)? };
+    }
+
     build_and_write_paths(&mut lock, &v, options.all, separator)?;
 
     Ok(())
