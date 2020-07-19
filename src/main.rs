@@ -62,18 +62,15 @@ fn build_and_write_paths<W: Write>(
         match &parent_pathvalue.value {
             serde_json::Value::Object(m) => {
                 for (k, v) in m {
-                    let maybe_child_pathvalue = build_and_write_path(
+                    build_and_write_path(
                         &mut io_buf,
+                        &mut traversal_queue,
                         k,
                         v,
                         &parent_pathvalue,
                         should_write_all,
                         separator,
                     )?;
-
-                    if let Some(child_pathvalue) = maybe_child_pathvalue {
-                        traversal_queue.push_back(child_pathvalue);
-                    }
                 }
             }
             serde_json::Value::Array(a) => {
@@ -91,18 +88,15 @@ fn build_and_write_paths<W: Write>(
                         }
                     };
 
-                    let maybe_child_pathvalue = build_and_write_path(
+                    build_and_write_path(
                         &mut io_buf,
+                        &mut traversal_queue,
                         istr,
                         v,
                         &parent_pathvalue,
                         should_write_all,
                         separator,
                     )?;
-
-                    if let Some(child_pathvalue) = maybe_child_pathvalue {
-                        traversal_queue.push_back(child_pathvalue);
-                    }
                 }
             }
             _ => panic!("Only arrays and objects should be in the queue"),
@@ -120,6 +114,7 @@ fn build_and_write_paths<W: Write>(
 // Is a Result because `write_path` IO can fail.
 fn build_and_write_path<'a>(
     io_buf: &mut Vec<u8>,
+    traversal_queue: &mut VecDeque<PathValue<'a>>,
     k: &str,
     v: &'a serde_json::Value,
     parent_pathvalue: &PathValue,
@@ -132,13 +127,14 @@ fn build_and_write_path<'a>(
 
     if is_terminal(v) {
         write_path(io_buf, &child_pathvalue, separator)?;
-        Ok(None)
     } else if should_write_all {
         write_path(io_buf, &child_pathvalue, separator)?;
-        Ok(Some(child_pathvalue))
+        traversal_queue.push_back(child_pathvalue);
     } else {
-        Ok(Some(child_pathvalue))
+        traversal_queue.push_back(child_pathvalue);
     }
+
+    Ok(())
 }
 
 fn build_child_path(parent_path: &str, child_path_value: &str) -> Box<str> {
