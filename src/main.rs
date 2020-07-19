@@ -120,7 +120,7 @@ fn build_and_write_path<'a>(
     parent_pathvalue: &PathValue,
     should_write_all: bool,
     separator: &str,
-) -> Result<Option<PathValue<'a>>, Box<dyn Error>> {
+) -> serde_json::Result<()> {
     let child_path = build_child_path(&parent_pathvalue.path, k);
 
     let child_pathvalue = PathValue::new(v, child_path);
@@ -150,7 +150,7 @@ fn write_path(
     io_buf: &mut Vec<u8>,
     pathvalue: &PathValue,
     separator: &str,
-) -> Result<(), Box<dyn Error>> {
+) -> serde_json::Result<()> {
     let value_bytes = serde_json::to_vec(&pathvalue.value)?;
 
     io_buf.extend_from_slice(&pathvalue.path.as_bytes());
