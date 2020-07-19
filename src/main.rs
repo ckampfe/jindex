@@ -56,12 +56,14 @@ fn build_and_write_paths<W: Write>(
 
     let mut i_memo = vec![];
 
+    let mut io_buf = Vec::new();
+
     while let Some(parent_pathvalue) = traversal_queue.pop_front() {
         match &parent_pathvalue.value {
             serde_json::Value::Object(m) => {
                 for (k, v) in m {
                     let maybe_child_pathvalue = build_and_write_path(
-                        writer,
+                        &mut io_buf,
                         k,
                         v,
                         &parent_pathvalue,
@@ -90,7 +92,7 @@ fn build_and_write_paths<W: Write>(
                     };
 
                     let maybe_child_pathvalue = build_and_write_path(
-                        writer,
+                        &mut io_buf,
                         istr,
                         v,
                         &parent_pathvalue,
@@ -105,6 +107,9 @@ fn build_and_write_paths<W: Write>(
             }
             _ => panic!("Only arrays and objects should be in the queue"),
         }
+
+        writer.write_all(&io_buf)?;
+        io_buf.clear();
     }
 
     Ok(())
@@ -113,8 +118,8 @@ fn build_and_write_paths<W: Write>(
 // Returns either a nonempty composite (object or array) for
 // further recursion, or None if type is not a nonempty composite.
 // Is a Result because `write_path` IO can fail.
-fn build_and_write_path<'a, W: Write>(
-    writer: &mut W,
+fn build_and_write_path<'a>(
+    io_buf: &mut Vec<u8>,
     k: &str,
     v: &'a serde_json::Value,
     parent_pathvalue: &PathValue,
@@ -126,10 +131,10 @@ fn build_and_write_path<'a, W: Write>(
     let child_pathvalue = PathValue::new(v, child_path);
 
     if is_terminal(v) {
-        write_path(writer, &child_pathvalue, separator)?;
+        write_path(io_buf, &child_pathvalue, separator)?;
         Ok(None)
     } else if should_write_all {
-        write_path(writer, &child_pathvalue, separator)?;
+        write_path(io_buf, &child_pathvalue, separator)?;
         Ok(Some(child_pathvalue))
     } else {
         Ok(Some(child_pathvalue))
@@ -145,23 +150,17 @@ fn build_child_path(parent_path: &str, child_path_value: &str) -> Box<str> {
     child_path.into_boxed_str()
 }
 
-fn write_path<W: Write>(
-    writer: &mut W,
+fn write_path(
+    io_buf: &mut Vec<u8>,
     pathvalue: &PathValue,
     separator: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let value_str = serde_json::to_string(&pathvalue.value)?;
+    let value_bytes = serde_json::to_vec(&pathvalue.value)?;
 
-    let mut out = String::with_capacity(
-        pathvalue.path.len() + separator.len() + value_str.len() + NEWLINE.len(),
-    );
-
-    out.push_str(&pathvalue.path);
-    out.push_str(separator);
-    out.push_str(&value_str);
-    out.push_str(NEWLINE);
-
-    writer.write_all(out.as_bytes())?;
+    io_buf.extend_from_slice(&pathvalue.path.as_bytes());
+    io_buf.extend_from_slice(separator.as_bytes());
+    io_buf.extend_from_slice(&value_bytes);
+    io_buf.extend_from_slice(NEWLINE.as_bytes());
 
     Ok(())
 }
