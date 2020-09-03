@@ -16,6 +16,6 @@ nix = "0.18"
 default = ["jemalloc"]
 
 [profile.release]
-opt-level = 3
-lto = true
 codegen-units = 1
+lto = true
+opt-level = 3
