@@ -215,7 +215,6 @@ mod tests {
                 "c": ["x", "y", "z"],
                 "d": {"e": {"f": [{}, 9, "g"]}}
             }
-
         );
         let mut writer = vec![];
         build_and_write_paths(&mut writer, &v, true, "@@@").unwrap();
@@ -252,7 +251,6 @@ mod tests {
                 "c": ["x", "y", "z"],
                 "d": {"e": {"f": [{}, 9, "g", []]}}
             }
-
         );
         let mut writer = vec![];
         build_and_write_paths(&mut writer, &v, false, "@@@").unwrap();
