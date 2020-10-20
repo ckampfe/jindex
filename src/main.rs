@@ -3,7 +3,6 @@
 static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
 use std::boxed::Box;
-use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -48,23 +47,23 @@ fn build_and_write_paths<W: Write>(
     should_write_all: bool,
     separator: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let mut traversal_queue: VecDeque<PathValue> = VecDeque::new();
+    let mut traversal_stack: Vec<PathValue> = Vec::new();
 
     let root_pathvalue = PathValue::new(&json, "".to_string().into_boxed_str());
 
-    traversal_queue.push_back(root_pathvalue);
+    traversal_stack.push(root_pathvalue);
 
     let mut i_memo = vec![];
 
     let mut io_buf = Vec::new();
 
-    while let Some(parent_pathvalue) = traversal_queue.pop_front() {
+    while let Some(parent_pathvalue) = traversal_stack.pop() {
         match &parent_pathvalue.value {
             serde_json::Value::Object(m) => {
                 for (k, v) in m {
                     build_and_write_path(
                         &mut io_buf,
-                        &mut traversal_queue,
+                        &mut traversal_stack,
                         k,
                         v,
                         &parent_pathvalue,
@@ -90,7 +89,7 @@ fn build_and_write_paths<W: Write>(
 
                     build_and_write_path(
                         &mut io_buf,
-                        &mut traversal_queue,
+                        &mut traversal_stack,
                         istr,
                         v,
                         &parent_pathvalue,
@@ -99,7 +98,7 @@ fn build_and_write_paths<W: Write>(
                     )?;
                 }
             }
-            _ => panic!("Only arrays and objects should be in the queue"),
+            _ => panic!("Only arrays and objects should be in the stack"),
         }
 
         writer.write_all(&io_buf)?;
@@ -114,7 +113,7 @@ fn build_and_write_paths<W: Write>(
 // Is a Result because `write_path` IO can fail.
 fn build_and_write_path<'a>(
     io_buf: &mut Vec<u8>,
-    traversal_queue: &mut VecDeque<PathValue<'a>>,
+    traversal_stack: &mut Vec<PathValue<'a>>,
     k: &str,
     v: &'a serde_json::Value,
     parent_pathvalue: &PathValue,
@@ -129,9 +128,9 @@ fn build_and_write_path<'a>(
         write_path(io_buf, &child_pathvalue, separator)?;
     } else if should_write_all {
         write_path(io_buf, &child_pathvalue, separator)?;
-        traversal_queue.push_back(child_pathvalue);
+        traversal_stack.push(child_pathvalue);
     } else {
-        traversal_queue.push_back(child_pathvalue);
+        traversal_stack.push(child_pathvalue);
     }
 
     Ok(())
@@ -205,6 +204,24 @@ fn main() -> Result<(), Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
+    macro_rules! hashset {
+        () => {
+            HashSet::new()
+        };
+        ( $($x:expr),+ $(,)? ) => {
+            {
+                let mut set = HashSet::new();
+
+                $(
+                    set.insert($x);
+                )*
+
+                set
+            }
+        };
+    }
 
     #[test]
     fn a_simple_document() {
@@ -224,8 +241,8 @@ mod tests {
                 .unwrap()
                 .split(NEWLINE)
                 .filter(|s| !s.is_empty())
-                .collect::<Vec<&str>>(),
-            vec![
+                .collect::<HashSet<&str>>(),
+            hashset![
                 r#"/a@@@1"#,
                 r#"/b@@@2"#,
                 r#"/c@@@["x","y","z"]"#,
@@ -260,8 +277,8 @@ mod tests {
                 .unwrap()
                 .split(NEWLINE)
                 .filter(|s| !s.is_empty())
-                .collect::<Vec<&str>>(),
-            vec![
+                .collect::<HashSet<&str>>(),
+            hashset![
                 r#"/a@@@1"#,
                 r#"/b@@@2"#,
                 r#"/c/0@@@"x""#,

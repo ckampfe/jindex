@@ -1,5 +1,4 @@
-jindex
-===
+# jindex
 
 Enumerate the paths through a JSON document.
 
@@ -73,6 +72,8 @@ $ jindex -s@@@ simple.json
 
 Paths are done in the style of [RFC6901](https://tools.ietf.org/html/rfc6901).
 
+## Command-line interface
+
 ```
 $ jindex -h
 jindex 0.1.0
@@ -92,6 +93,17 @@ ARGS:
     <json-location>    A JSON file path
 ```
 
+## Path output order
+
+The order in which paths are output is undefined.
+Paths may appear depth-first, breadth-first, or any other order at all relative to their position in the input JSON document.
+Further, any ordering is not guaranteed to be stable from one version to the next,
+as it may change to aid the implementation of new optimizations.
+If a stable order is important, I recommend using `sort` or some other after-the-fact
+mechanism, as the set of paths output from a given input document are guaranteed
+to be stable over time
+(instability of the actual member paths of the set is considered a bug).
+
 ## Benchmark
 
 With jemalloc (enabled by default):
@@ -101,36 +113,12 @@ $ ls -la ~/code/sf-city-lots-json/citylots.json
 .rw-r--r-- 189M clark  9 Apr 15:52 /Users/clark/code/sf-city-lots-json/citylots.json
 
 $ /usr/bin/time -l jindex ~/code/sf-city-lots-json/citylots.json > /dev/null
-        3.84 real         3.34 user         0.48 sys
-1266814976  maximum resident set size
+        2.69 real         2.31 user         0.37 sys
+1151422464  maximum resident set size
          0  average shared memory size
          0  average unshared data size
          0  average unshared stack size
-    310071  page reclaims
-       123  page faults
-         0  swaps
-         0  block input operations
-         0  block output operations
-         0  messages sent
-         0  messages received
-         0  signals received
-         1  voluntary context switches
-       921  involuntary context switches
-```
-
-Without jemalloc:
-
-```
-$ ls -la ~/code/sf-city-lots-json/citylots.json
-.rw-r--r-- 189M clark  9 Apr 15:52 /Users/clark/code/sf-city-lots-json/citylots.json
-
-$ /usr/bin/time -l jindex ~/code/sf-city-lots-json/citylots.json > /dev/null
-        7.20 real         6.63 user         0.56 sys
-1191718912  maximum resident set size
-         0  average shared memory size
-         0  average unshared data size
-         0  average unshared stack size
-    388613  page reclaims
+    281130  page reclaims
          0  page faults
          0  swaps
          0  block input operations
@@ -139,7 +127,7 @@ $ /usr/bin/time -l jindex ~/code/sf-city-lots-json/citylots.json > /dev/null
          0  messages received
          0  signals received
          0  voluntary context switches
-       934  involuntary context switches
+        64  involuntary context switches
 ```
 
 ## Features
