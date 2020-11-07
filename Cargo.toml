@@ -2,6 +2,14 @@
 name = "jindex"
 version = "0.1.0"
 authors = ["Clark Kampfe <clark.kampfe@gmail.com>"]
+license-file = "LICENSE"
+description = "Enumerate the paths through a JSON document"
+homepage = "https://github.com/ckampfe/jindex"
+repository = "https://github.com/ckampfe/jindex"
+documentation = "https://docs.rs/jindex/"
+readme = "README.md"
+keywords = ["json", "paths"]
+categories = ["command-line-utilities"]
 edition = "2018"
 
 [dependencies]
