@@ -53,7 +53,11 @@ fn build_and_write_paths<W: Write>(
 
     traversal_stack.push(root_pathvalue);
 
-    let mut i_memo = vec![];
+    // a cache of array indexes, as strings.
+    // for example, we don't need to
+    // turn `0usize` into `"0"` 1000 times,
+    // we do it once and store it
+    let mut i_cache = vec![];
 
     let mut io_buf = Vec::new();
 
@@ -74,16 +78,16 @@ fn build_and_write_paths<W: Write>(
             }
             serde_json::Value::Array(a) => {
                 for (i, v) in a.iter().enumerate() {
-                    let istr = match i_memo.get(i) {
+                    let istr = match i_cache.get(i) {
                         Some(istr) => istr,
                         None => {
                             let istr = i.to_string().into_boxed_str();
-                            i_memo.push(istr);
+                            i_cache.push(istr);
                             // we call back into the vec to the the istr
                             // we just created because we must have the
                             // vec own the istr so the istr can outlive
                             // this local function
-                            &i_memo[i_memo.len() - 1]
+                            &i_cache[i_cache.len() - 1]
                         }
                     };
 
