@@ -59,7 +59,10 @@ fn build_and_write_paths<W: Write>(
     // we do it once and store it
     let mut i_cache = vec![];
 
-    let mut io_buf = Vec::new();
+    // we buffer io writes into this,
+    // flushing it only once per array or object,
+    // rather than doing a write for every single path
+    let mut io_buf = vec![];
 
     while let Some(parent_pathvalue) = traversal_stack.pop() {
         match &parent_pathvalue.value {
