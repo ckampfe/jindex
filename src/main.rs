@@ -64,12 +64,19 @@ fn build_and_write_paths<W: Write>(
     // rather than doing a write for every single path
     let mut io_buf = vec![];
 
+    // for every json value we want to write,
+    // we serialize it to bytes.
+    // we reuse and clear this buffer as the bytes receptacle
+    // rather than allocating a new one for each value
+    let mut value_buf = vec![];
+
     while let Some(parent_pathvalue) = traversal_stack.pop() {
         match &parent_pathvalue.value {
             serde_json::Value::Object(m) => {
                 for (k, v) in m {
                     build_and_write_path(
                         &mut io_buf,
+                        &mut value_buf,
                         &mut traversal_stack,
                         k,
                         v,
@@ -96,6 +103,7 @@ fn build_and_write_paths<W: Write>(
 
                     build_and_write_path(
                         &mut io_buf,
+                        &mut value_buf,
                         &mut traversal_stack,
                         istr,
                         v,
@@ -120,6 +128,7 @@ fn build_and_write_paths<W: Write>(
 // Is a Result because `write_path` IO can fail.
 fn build_and_write_path<'a>(
     io_buf: &mut Vec<u8>,
+    value_buf: &mut Vec<u8>,
     traversal_stack: &mut Vec<PathValue<'a>>,
     k: &str,
     v: &'a serde_json::Value,
@@ -132,9 +141,9 @@ fn build_and_write_path<'a>(
     let child_pathvalue = PathValue::new(v, child_path);
 
     if is_terminal(v) {
-        write_path(io_buf, &child_pathvalue, separator)?;
+        write_path(io_buf, value_buf, &child_pathvalue, separator)?;
     } else if should_write_all {
-        write_path(io_buf, &child_pathvalue, separator)?;
+        write_path(io_buf, value_buf, &child_pathvalue, separator)?;
         traversal_stack.push(child_pathvalue);
     } else {
         traversal_stack.push(child_pathvalue);
@@ -154,15 +163,18 @@ fn build_child_path(parent_path: &str, child_path_value: &str) -> Box<str> {
 
 fn write_path(
     io_buf: &mut Vec<u8>,
+    mut value_buf: &mut Vec<u8>,
     pathvalue: &PathValue,
     separator: &str,
 ) -> serde_json::Result<()> {
-    let value_bytes = serde_json::to_vec(&pathvalue.value)?;
+    serde_json::to_writer(&mut value_buf, pathvalue.value)?;
 
     io_buf.extend_from_slice(&pathvalue.path.as_bytes());
     io_buf.extend_from_slice(separator.as_bytes());
-    io_buf.extend_from_slice(&value_bytes);
+    io_buf.extend_from_slice(&value_buf);
     io_buf.extend_from_slice(NEWLINE.as_bytes());
+
+    value_buf.clear();
 
     Ok(())
 }
