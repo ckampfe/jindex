@@ -13,7 +13,7 @@ use structopt::*;
 const PATH_SEPARATOR: &str = "/";
 const NEWLINE: &str = "\n";
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(StructOpt)]
 #[structopt(name = "jindex")]
 struct Options {
     /// Write all path values, including composite ones
