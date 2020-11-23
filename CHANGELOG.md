@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-- Clippy: allow_too_many arguments on `build_and_write_path`
-- Make sure to flush stdout `BufWriter` before it is dropped
-- Bump cc and syn
+## 0.3.0 - 2020-11-22
+
+- Clippy: allow_too_many arguments on `build_and_write_path`: [f13ad65](https://github.com/ckampfe/jindex/commit/f13ad65f0ae348d3eaa5f5be612980584bc32207)
+- Make sure to flush stdout `BufWriter` before it is dropped: [e00005a](https://github.com/ckampfe/jindex/commit/e00005a00e2626246b6c026f42a0a36c1229b2c1)
+- Bump cc and syn: [1a295c4](https://github.com/ckampfe/jindex/commit/1a295c4941e55c17f220c0d82f65a19dbc6b3e1d)
 
 ## 0.2.0 - 2020-11-18
 
