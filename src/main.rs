@@ -126,6 +126,7 @@ fn build_and_write_paths<W: Write>(
 // Returns either a nonempty composite (object or array) for
 // further recursion, or None if type is not a nonempty composite.
 // Is a Result because `write_path` IO can fail.
+#[allow(clippy::too_many_arguments)]
 fn build_and_write_path<'a>(
     io_buf: &mut Vec<u8>,
     value_buf: &mut Vec<u8>,

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Clippy: allow_too_many arguments on `build_and_write_path`
+
 ## 0.2.0 - 2020-11-18
 
 - do not create a new vec for every value: [ff17bed](https://github.com/ckampfe/jindex/commit/ff17bedf9dd11245af25d88f1b576fabc31b1112)
