@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Clippy: allow_too_many arguments on `build_and_write_path`
+- Make sure to flush stdout `BufWriter` before it is dropped
 
 ## 0.2.0 - 2020-11-18
 

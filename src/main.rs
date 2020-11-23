@@ -218,6 +218,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     build_and_write_paths(&mut lock, &v, options.all, separator)?;
 
+    lock.flush()?;
+
     Ok(())
 }
 
