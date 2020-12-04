@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.0 - 2020-12-03
+
+- Use a string pool to reuse path strings for a nice speedup: [071f20d](https://github.com/ckampfe/jindex/commit/071f20d)
+- Remove unneeded value_buf, write to io_buf directly: [469d282](https://github.com/ckampfe/jindex/commit/469d282)
+- Bump cc and serde_json: [99ea54d](https://github.com/ckampfe/jindex/commit/99ea54d)
+
 ## 0.3.0 - 2020-11-22
 
 - Clippy: allow_too_many arguments on `build_and_write_path`: [f13ad65](https://github.com/ckampfe/jindex/commit/f13ad65f0ae348d3eaa5f5be612980584bc32207)
