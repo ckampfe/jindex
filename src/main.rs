@@ -2,14 +2,13 @@
 #[global_allocator]
 static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
-use lifeguard::*;
 use std::boxed::Box;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
-use structopt::*;
+use structopt::StructOpt;
 
 const PATH_SEPARATOR: &str = "/";
 const NEWLINE: &str = "\n";
@@ -61,9 +60,9 @@ fn build_and_write_paths<W: Write>(
 ) -> Result<(), Box<dyn Error>> {
     let path_pool_starting_string_capacity = options.path_pool_starting_string_capacity;
 
-    let path_pool: Pool<String> = pool()
-        .with(StartingSize(options.path_pool_starting_size))
-        .with(Supplier(move || {
+    let path_pool: lifeguard::Pool<String> = lifeguard::pool()
+        .with(lifeguard::StartingSize(options.path_pool_starting_size))
+        .with(lifeguard::Supplier(move || {
             String::with_capacity(path_pool_starting_string_capacity)
         }))
         .build();
