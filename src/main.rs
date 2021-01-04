@@ -70,7 +70,7 @@ fn build_and_write_paths<W: Write>(
 
     let mut traversal_stack: Vec<PathValue> = Vec::new();
 
-    let root_pathvalue = PathValue::new(&json, path_pool.new());
+    let root_pathvalue = PathValue::new(json, path_pool.new());
 
     traversal_stack.push(root_pathvalue);
 
