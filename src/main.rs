@@ -2,9 +2,8 @@
 #[global_allocator]
 static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
-use std::boxed::Box;
+use anyhow::{anyhow, Result};
 use std::convert::TryInto;
-use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
@@ -57,7 +56,7 @@ fn build_and_write_paths<W: Write>(
     writer: &mut W,
     json: &serde_json::Value,
     options: &Options,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let path_pool_starting_string_capacity = options.path_pool_starting_string_capacity;
 
     let path_pool: lifeguard::Pool<String> = lifeguard::pool()
@@ -67,143 +66,125 @@ fn build_and_write_paths<W: Write>(
         }))
         .build();
 
-    let mut traversal_stack: Vec<PathValue> = Vec::new();
+    let mut traversal_stack: Vec<PathValue> = vec![];
 
     let root_pathvalue = PathValue::new(json, path_pool.new());
-
-    traversal_stack.push(root_pathvalue);
 
     // a cache of array indexes, as strings.
     // for example, we don't need to
     // turn `0usize` into `"0"` 1000 times,
     // we do it once and store it
-    let mut i_cache = vec![];
+    let mut i_cache: Vec<Box<str>> = vec![];
 
-    // we buffer io writes into this,
-    // flushing it only once per array or object,
-    // rather than doing a write for every single path
-    let mut io_buf = vec![];
-
-    while let Some(parent_pathvalue) = traversal_stack.pop() {
-        match &parent_pathvalue.value {
-            serde_json::Value::Object(m) => {
-                for (k, v) in m {
-                    build_and_write_path(
-                        &path_pool,
-                        &mut io_buf,
-                        &mut traversal_stack,
-                        k,
-                        v,
-                        &parent_pathvalue,
-                        options.all,
-                        &options.separator,
-                    )?;
-                }
-            }
-            serde_json::Value::Array(a) => {
-                for (i, v) in a.iter().enumerate() {
-                    let istr = match i_cache.get(i) {
-                        Some(istr) => istr,
-                        None => {
-                            let istr = i.to_string().into_boxed_str();
-                            i_cache.push(istr);
-                            // we call back into the vec to the the istr
-                            // we just created because we must have the
-                            // vec own the istr so the istr can outlive
-                            // this local function
-                            &i_cache[i_cache.len() - 1]
-                        }
-                    };
-
-                    build_and_write_path(
-                        &path_pool,
-                        &mut io_buf,
-                        &mut traversal_stack,
-                        istr,
-                        v,
-                        &parent_pathvalue,
-                        options.all,
-                        &options.separator,
-                    )?;
-                }
-            }
-            _ => panic!("Only arrays and objects should be in the stack"),
+    match root_pathvalue.value {
+        serde_json::Value::Object(m) => {
+            traverse_object(&mut traversal_stack, m, &root_pathvalue, &path_pool)
         }
+        serde_json::Value::Array(a) => traverse_array(
+            &mut traversal_stack,
+            a,
+            &root_pathvalue,
+            &mut i_cache,
+            &path_pool,
+        ),
+        input => {
+            return Err(anyhow!(
+                "input value must be either a JSON array or JSON object, got: {}",
+                input
+            ))
+        }
+    }
 
-        writer.write_all(&io_buf)?;
-        io_buf.clear();
+    while let Some(pathvalue) = traversal_stack.pop() {
+        match pathvalue.value {
+            serde_json::Value::Object(m) if !m.is_empty() => {
+                traverse_object(&mut traversal_stack, m, &pathvalue, &path_pool);
+                if options.all {
+                    write_path(writer, &pathvalue, &options.separator)?;
+                }
+            }
+            serde_json::Value::Array(a) if !a.is_empty() => {
+                traverse_array(
+                    &mut traversal_stack,
+                    a,
+                    &pathvalue,
+                    &mut i_cache,
+                    &path_pool,
+                );
+                if options.all {
+                    write_path(writer, &pathvalue, &options.separator)?;
+                }
+            }
+            _terminal_value => {
+                write_path(writer, &pathvalue, &options.separator)?;
+            }
+        }
     }
 
     Ok(())
 }
 
-// Returns either a nonempty composite (object or array) for
-// further recursion, or None if type is not a nonempty composite.
-// Is a Result because `write_path` IO can fail.
-#[allow(clippy::too_many_arguments)]
-fn build_and_write_path<'a>(
-    path_pool: &'a lifeguard::Pool<String>,
-    io_buf: &mut Vec<u8>,
-    traversal_stack: &mut Vec<PathValue<'a>>,
-    k: &str,
-    v: &'a serde_json::Value,
-    parent_pathvalue: &PathValue,
-    should_write_all: bool,
-    separator: &str,
-) -> serde_json::Result<()> {
-    let child_path = build_child_path(&path_pool, &parent_pathvalue.path, k);
-
-    let child_pathvalue = PathValue::new(v, child_path);
-
-    if is_terminal(v) {
-        write_path(io_buf, &child_pathvalue, separator)?;
-    } else if should_write_all {
-        write_path(io_buf, &child_pathvalue, separator)?;
-        traversal_stack.push(child_pathvalue);
-    } else {
-        traversal_stack.push(child_pathvalue);
-    }
-
-    Ok(())
-}
-
-fn build_child_path<'a>(
-    path_pool: &'a lifeguard::Pool<String>,
-    parent_path: &str,
-    child_path_value: &str,
-) -> lifeguard::Recycled<'a, std::string::String> {
-    let mut child_path = path_pool.new();
-    child_path.reserve(parent_path.len() + PATH_SEPARATOR.len() + child_path_value.len());
-    child_path.push_str(parent_path);
-    child_path.push_str(PATH_SEPARATOR);
-    child_path.push_str(child_path_value);
-    child_path
-}
-
-fn write_path(
-    mut io_buf: &mut Vec<u8>,
+fn traverse_object<'a, 'b>(
+    traversal_stack: &'b mut Vec<PathValue<'a>>,
+    m: &'a serde_json::Map<String, serde_json::Value>,
     pathvalue: &PathValue,
-    separator: &str,
-) -> serde_json::Result<()> {
-    io_buf.extend_from_slice(&pathvalue.path.as_bytes());
-    io_buf.extend_from_slice(separator.as_bytes());
-    serde_json::to_writer(&mut io_buf, pathvalue.value)?;
-    io_buf.extend_from_slice(NEWLINE.as_bytes());
+    path_pool: &'a lifeguard::Pool<String>,
+) {
+    traversal_stack.extend(
+        m.iter()
+            .map(|(k, v)| build_path(&path_pool, &pathvalue.path, k, v)),
+    )
+}
+
+fn traverse_array<'a, 'b>(
+    traversal_stack: &'b mut Vec<PathValue<'a>>,
+    a: &'a [serde_json::Value],
+    pathvalue: &PathValue,
+    i_cache: &mut Vec<Box<str>>,
+    path_pool: &'a lifeguard::Pool<String>,
+) {
+    traversal_stack.extend(a.iter().enumerate().map(|(i, v)| {
+        let istr = match i_cache.get(i) {
+            Some(istr) => istr,
+            None => {
+                let istr = i.to_string().into_boxed_str();
+                i_cache.push(istr);
+                // we call back into the vec to the the istr
+                // we just created because we must have the
+                // vec own the istr so the istr can outlive
+                // this local function
+                &i_cache[i_cache.len() - 1]
+            }
+        };
+
+        build_path(&path_pool, &pathvalue.path, istr, v)
+    }))
+}
+
+fn build_path<'a>(
+    path_pool: &'a lifeguard::Pool<String>,
+    existing_path: &str,
+    path_addition: &str,
+    v: &'a serde_json::Value,
+) -> PathValue<'a> {
+    let mut child_path = path_pool.new();
+    child_path.reserve(existing_path.len() + PATH_SEPARATOR.len() + path_addition.len());
+    child_path.push_str(existing_path);
+    child_path.push_str(PATH_SEPARATOR);
+    child_path.push_str(path_addition);
+    PathValue::new(v, child_path)
+}
+
+fn write_path<W: Write>(mut w: &mut W, pathvalue: &PathValue, separator: &str) -> Result<()> {
+    w.write(&pathvalue.path.as_bytes())?;
+    w.write(separator.as_bytes())?;
+    serde_json::to_writer(&mut w, pathvalue.value)?;
+    w.write(NEWLINE.as_bytes())?;
 
     Ok(())
 }
 
-// a terminal is an empty object, an empty array,
-// or any other value
-fn is_terminal(v: &serde_json::Value) -> bool {
-    match v {
-        serde_json::Value::Array(v) => v.is_empty(),
-        serde_json::Value::Object(m) => m.is_empty(),
-        _ => true,
-    }
-}
-
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     // https://github.com/rust-lang/rust/issues/46016
     #[cfg(target_family = "unix")]
     {
