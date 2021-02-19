@@ -10,7 +10,6 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 const PATH_SEPARATOR: &str = "/";
-const NEWLINE: &str = "\n";
 
 /// Enumerate the paths through a JSON document.
 #[derive(StructOpt)]
@@ -76,13 +75,15 @@ fn build_and_write_paths<W: Write>(
     // we do it once and store it
     let mut i_cache: Vec<Box<str>> = vec![];
 
+    // for the root pathvalue, we run special case traversal that does not do IO.
+    // it only traverses the value and adds its results to the traversal_stack.
     match root_pathvalue.value {
-        serde_json::Value::Object(m) => {
-            traverse_object(&mut traversal_stack, m, &root_pathvalue, &path_pool)
+        serde_json::Value::Object(object) => {
+            traverse_object(&mut traversal_stack, object, &root_pathvalue, &path_pool)
         }
-        serde_json::Value::Array(a) => traverse_array(
+        serde_json::Value::Array(array) => traverse_array(
             &mut traversal_stack,
-            a,
+            array,
             &root_pathvalue,
             &mut i_cache,
             &path_pool,
@@ -97,16 +98,16 @@ fn build_and_write_paths<W: Write>(
 
     while let Some(pathvalue) = traversal_stack.pop() {
         match pathvalue.value {
-            serde_json::Value::Object(m) if !m.is_empty() => {
-                traverse_object(&mut traversal_stack, m, &pathvalue, &path_pool);
+            serde_json::Value::Object(object) if !object.is_empty() => {
+                traverse_object(&mut traversal_stack, object, &pathvalue, &path_pool);
                 if options.all {
                     write_path(writer, &pathvalue, &options.separator)?;
                 }
             }
-            serde_json::Value::Array(a) if !a.is_empty() => {
+            serde_json::Value::Array(array) if !array.is_empty() => {
                 traverse_array(
                     &mut traversal_stack,
-                    a,
+                    array,
                     &pathvalue,
                     &mut i_cache,
                     &path_pool,
@@ -126,24 +127,25 @@ fn build_and_write_paths<W: Write>(
 
 fn traverse_object<'a, 'b>(
     traversal_stack: &'b mut Vec<PathValue<'a>>,
-    m: &'a serde_json::Map<String, serde_json::Value>,
+    object: &'a serde_json::Map<String, serde_json::Value>,
     pathvalue: &PathValue,
     path_pool: &'a lifeguard::Pool<String>,
 ) {
     traversal_stack.extend(
-        m.iter()
-            .map(|(k, v)| build_path(&path_pool, &pathvalue.path, k, v)),
+        object
+            .iter()
+            .map(|(k, v)| build_child_pathvalue(&path_pool, &pathvalue.path, k, v)),
     )
 }
 
 fn traverse_array<'a, 'b>(
     traversal_stack: &'b mut Vec<PathValue<'a>>,
-    a: &'a [serde_json::Value],
+    array: &'a [serde_json::Value],
     pathvalue: &PathValue,
     i_cache: &mut Vec<Box<str>>,
     path_pool: &'a lifeguard::Pool<String>,
 ) {
-    traversal_stack.extend(a.iter().enumerate().map(|(i, v)| {
+    traversal_stack.extend(array.iter().enumerate().map(|(i, v)| {
         let istr = match i_cache.get(i) {
             Some(istr) => istr,
             None => {
@@ -157,31 +159,30 @@ fn traverse_array<'a, 'b>(
             }
         };
 
-        build_path(&path_pool, &pathvalue.path, istr, v)
+        build_child_pathvalue(&path_pool, &pathvalue.path, istr, v)
     }))
 }
 
-fn build_path<'a>(
+fn build_child_pathvalue<'a>(
     path_pool: &'a lifeguard::Pool<String>,
     existing_path: &str,
     path_addition: &str,
-    v: &'a serde_json::Value,
+    value: &'a serde_json::Value,
 ) -> PathValue<'a> {
     let mut child_path = path_pool.new();
-    child_path.reserve(existing_path.len() + PATH_SEPARATOR.len() + path_addition.len());
+    child_path.reserve_exact(existing_path.len() + PATH_SEPARATOR.len() + path_addition.len());
     child_path.push_str(existing_path);
     child_path.push_str(PATH_SEPARATOR);
     child_path.push_str(path_addition);
-    PathValue::new(v, child_path)
+    PathValue::new(value, child_path)
 }
 
-fn write_path<W: Write>(mut w: &mut W, pathvalue: &PathValue, separator: &str) -> Result<()> {
-    w.write(&pathvalue.path.as_bytes())?;
-    w.write(separator.as_bytes())?;
-    serde_json::to_writer(&mut w, pathvalue.value)?;
-    w.write(NEWLINE.as_bytes())?;
-
-    Ok(())
+fn write_path<W: Write>(
+    writer: &mut W,
+    pathvalue: &PathValue,
+    separator: &str,
+) -> std::io::Result<()> {
+    writeln!(writer, "{}{}{}", pathvalue.path, separator, pathvalue.value)
 }
 
 fn main() -> Result<()> {
@@ -194,7 +195,7 @@ fn main() -> Result<()> {
 
     let options = Options::from_args();
 
-    let v: serde_json::Value = if let Some(json_location) = &options.json_location {
+    let value: serde_json::Value = if let Some(json_location) = &options.json_location {
         let mut f = File::open(json_location)?;
         let len = f.metadata()?.len();
         let mut buf = Vec::with_capacity(len.try_into()?);
@@ -208,7 +209,7 @@ fn main() -> Result<()> {
     let stdout = std::io::stdout();
     let mut lock = BufWriter::new(stdout.lock());
 
-    build_and_write_paths(&mut lock, &v, &options)?;
+    build_and_write_paths(&mut lock, &value, &options)?;
 
     lock.flush()?;
 
@@ -262,7 +263,7 @@ mod tests {
         assert_eq!(
             std::str::from_utf8(&writer)
                 .unwrap()
-                .split(NEWLINE)
+                .split('\n')
                 .filter(|s| !s.is_empty())
                 .collect::<HashSet<&str>>(),
             hashset![
@@ -307,7 +308,7 @@ mod tests {
         assert_eq!(
             std::str::from_utf8(&writer)
                 .unwrap()
-                .split(NEWLINE)
+                .split('\n')
                 .filter(|s| !s.is_empty())
                 .collect::<HashSet<&str>>(),
             hashset![
