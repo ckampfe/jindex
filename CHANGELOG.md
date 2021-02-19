@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.5.0 - 2021-02-19
+
+- Big internal refactor/rebuild. No user/API changes other than an additional error message for when a non-array/object JSON value is passed.
+- There is a slight performance regression that should be unnoticeable on all but very large inputs (hundreds of megabytes).
+
 ## 0.4.0 - 2020-12-03
 
 - Use a string pool to reuse path strings for a nice speedup: [071f20d](https://github.com/ckampfe/jindex/commit/071f20d)
