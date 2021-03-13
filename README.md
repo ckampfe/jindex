@@ -6,18 +6,16 @@ Enumerate the paths through a JSON document.
 
 ## Installation
 
-Via crates.io:
+Latest stable release from crates.io:
 
 ```
 $ cargo install jindex
 ```
 
-From source:
+Latest unstable (HEAD) release from source:
 
 ```
-$ git clone git@github.com:ckampfe/jindex.git
-$ cd jindex
-$ cargo install --path .
+$ cargo install --git https://github.com/ckampfe/jindex
 ```
 
 ## Examples
