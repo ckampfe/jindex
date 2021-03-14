@@ -9,6 +9,7 @@ use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+const NEWLINE: &str = "\n";
 const PATH_SEPARATOR: &str = "/";
 
 /// Enumerate the paths through a JSON document.
@@ -182,7 +183,11 @@ fn write_path<W: Write>(
     pathvalue: &PathValue,
     separator: &str,
 ) -> std::io::Result<()> {
-    writeln!(writer, "{}{}{}", pathvalue.path, separator, pathvalue.value)
+    writer.write_all(pathvalue.path.as_bytes())?;
+    writer.write_all(separator.as_bytes())?;
+    serde_json::to_writer(&mut *writer, pathvalue.value)?;
+    writer.write_all(NEWLINE.as_bytes())?;
+    Ok(())
 }
 
 fn main() -> Result<()> {
