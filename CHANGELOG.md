@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.6.0 - 2021-03-14
+
+- Fix performance regression introduced in 0.5.0.
+- Bump deps
+
 ## 0.5.0 - 2021-02-19
 
 - Big internal refactor/rebuild. No user/API changes other than an additional error message for when a non-array/object JSON value is passed.
