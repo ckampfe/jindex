@@ -1,6 +1,6 @@
 [package]
 name = "jindex"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Clark Kampfe <clark.kampfe@gmail.com>"]
 license-file = "LICENSE"
 description = "Enumerate the paths through a JSON document"

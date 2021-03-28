@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.7.0 - 2021-03-28
+
+- Speedup by using `ManuallyDrop` to have the OS clean up rather than running destructors
+- Bump deps
+
 ## 0.6.0 - 2021-03-14
 
 - Fix performance regression introduced in 0.5.0.
