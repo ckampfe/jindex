@@ -1,0 +1,20 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "11:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: anyhow
+    versions:
+    - 1.0.39
+  - dependency-name: serde_json
+    versions:
+    - 1.0.62
+    - 1.0.63
+    - 1.0.64
+  - dependency-name: nix
+    versions:
+    - 0.20.0
