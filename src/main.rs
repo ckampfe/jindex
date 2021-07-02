@@ -3,6 +3,7 @@
 static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
 use anyhow::{anyhow, Result};
+use smallvec::smallvec;
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
@@ -28,27 +29,18 @@ struct Options {
     /// Separator string, defaults to tab
     #[structopt(default_value = "\t", short, long)]
     separator: String,
-
-    /// Initial number of preallocated strings in the path pool
-    #[structopt(default_value = "128", long)]
-    path_pool_starting_size: usize,
-
-    /// Preallocated capacity of the strings in the path pool
-    #[structopt(default_value = "50", long)]
-    path_pool_starting_string_capacity: usize,
 }
+
+type Path = smallvec::SmallVec<[u32; 14]>;
 
 struct PathValue<'a> {
     value: &'a serde_json::Value,
     // https://users.rust-lang.org/t/use-case-for-box-str-and-string/8295
-    path: lifeguard::Recycled<'a, std::string::String>,
+    path: Path,
 }
 
 impl<'a> PathValue<'a> {
-    fn new(
-        value: &'a serde_json::Value,
-        path: lifeguard::Recycled<'a, std::string::String>,
-    ) -> Self {
+    fn new(value: &'a serde_json::Value, path: Path) -> Self {
         Self { value, path }
     }
 }
@@ -57,10 +49,11 @@ fn build_and_write_paths<'a, 'b, W: Write>(
     writer: &mut W,
     json: &'a serde_json::Value,
     traversal_stack: &'b mut Vec<PathValue<'a>>,
-    path_pool: &'a lifeguard::Pool<String>,
     options: &Options,
 ) -> Result<()> {
-    let root_pathvalue = PathValue::new(json, path_pool.new());
+    let mut all_paths = ManuallyDrop::new(Vec::with_capacity(5_000));
+
+    let root_pathvalue = PathValue::new(json, smallvec![]);
 
     // a cache of array indexes, as strings.
     // for example, we don't need to
@@ -72,14 +65,14 @@ fn build_and_write_paths<'a, 'b, W: Write>(
     // it only traverses the value and adds its results to the traversal_stack.
     match root_pathvalue.value {
         serde_json::Value::Object(object) => {
-            traverse_object(traversal_stack, object, &root_pathvalue, &path_pool)
+            traverse_object(traversal_stack, &mut all_paths, object, &root_pathvalue)
         }
         serde_json::Value::Array(array) => traverse_array(
             traversal_stack,
+            &mut all_paths,
             array,
             &root_pathvalue,
             &mut i_cache,
-            &path_pool,
         ),
         input => {
             return Err(anyhow!(
@@ -92,19 +85,25 @@ fn build_and_write_paths<'a, 'b, W: Write>(
     while let Some(pathvalue) = traversal_stack.pop() {
         match pathvalue.value {
             serde_json::Value::Object(object) if !object.is_empty() => {
-                traverse_object(traversal_stack, object, &pathvalue, &path_pool);
+                traverse_object(traversal_stack, &mut all_paths, object, &pathvalue);
                 if options.all {
-                    write_path_as_bytes(writer, &pathvalue, &options.separator)?;
+                    write_path_as_bytes(writer, &all_paths, &pathvalue, &options.separator)?;
                 }
             }
             serde_json::Value::Array(array) if !array.is_empty() => {
-                traverse_array(traversal_stack, array, &pathvalue, &mut i_cache, &path_pool);
+                traverse_array(
+                    traversal_stack,
+                    &mut all_paths,
+                    array,
+                    &pathvalue,
+                    &mut i_cache,
+                );
                 if options.all {
-                    write_path_as_bytes(writer, &pathvalue, &options.separator)?;
+                    write_path_as_bytes(writer, &all_paths, &pathvalue, &options.separator)?;
                 }
             }
             _terminal_value => {
-                write_path_as_bytes(writer, &pathvalue, &options.separator)?;
+                write_path_as_bytes(writer, &all_paths, &pathvalue, &options.separator)?;
             }
         }
     }
@@ -114,23 +113,23 @@ fn build_and_write_paths<'a, 'b, W: Write>(
 
 fn traverse_object<'a, 'b>(
     traversal_stack: &'b mut Vec<PathValue<'a>>,
+    all_paths: &mut Vec<String>,
     object: &'a serde_json::Map<String, serde_json::Value>,
     pathvalue: &PathValue,
-    path_pool: &'a lifeguard::Pool<String>,
 ) {
     traversal_stack.extend(
         object
             .iter()
-            .map(|(k, v)| build_child_pathvalue(&path_pool, &pathvalue.path, k, v)),
+            .map(|(k, v)| build_child_pathvalue(all_paths, &pathvalue.path, k, v)),
     )
 }
 
 fn traverse_array<'a, 'b>(
     traversal_stack: &'b mut Vec<PathValue<'a>>,
+    all_paths: &mut Vec<String>,
     array: &'a [serde_json::Value],
     pathvalue: &PathValue,
     i_cache: &mut Vec<Box<str>>,
-    path_pool: &'a lifeguard::Pool<String>,
 ) {
     traversal_stack.extend(array.iter().enumerate().map(|(i, v)| {
         let istr = match i_cache.get(i) {
@@ -146,30 +145,47 @@ fn traverse_array<'a, 'b>(
             }
         };
 
-        build_child_pathvalue(&path_pool, &pathvalue.path, istr, v)
+        build_child_pathvalue(all_paths, &pathvalue.path, istr, v)
     }))
 }
 
-fn build_child_pathvalue<'a>(
-    path_pool: &'a lifeguard::Pool<String>,
-    existing_path: &str,
-    path_addition: &str,
+fn build_child_pathvalue<'a, 'b, T: ToString>(
+    all_paths: &'b mut Vec<String>,
+    existing_path: &Path,
+    path_addition: T,
     value: &'a serde_json::Value,
 ) -> PathValue<'a> {
-    let mut child_path = path_pool.new();
-    child_path.reserve_exact(existing_path.len() + PATH_SEPARATOR.len() + path_addition.len());
-    child_path.push_str(existing_path);
-    child_path.push_str(PATH_SEPARATOR);
-    child_path.push_str(path_addition);
+    all_paths.push(path_addition.to_string());
+    let i = all_paths.len() - 1;
+    let mut child_path = existing_path.clone();
+    child_path.push(i as u32);
     PathValue::new(value, child_path)
 }
 
 fn write_path_as_bytes<W: Write>(
     writer: &mut W,
+    all_paths: &[String],
     pathvalue: &PathValue,
     separator: &str,
 ) -> std::io::Result<()> {
-    writer.write_all(pathvalue.path.as_bytes())?;
+    let len = pathvalue.path.len();
+    let path_separator_bytes = PATH_SEPARATOR.as_bytes();
+    writer.write_all(path_separator_bytes)?;
+    for (i, path_i) in pathvalue.path.iter().enumerate() {
+        let path_i_usize = *path_i as usize;
+
+        assert!(all_paths.len() + 1 >= path_i_usize);
+
+        let path = &all_paths[path_i_usize];
+
+        writer.write_all(path.as_bytes())?;
+
+        if i < len - 1 {
+            writer.write_all(path_separator_bytes)?;
+        }
+    }
+
+    // writer.write_all(pathvalue.path.as_bytes())?;
     writer.write_all(separator.as_bytes())?;
     serde_json::to_writer(&mut *writer, pathvalue.value)?;
     writer.write_all(NEWLINE.as_bytes())?;
@@ -199,29 +215,12 @@ fn main() -> Result<()> {
 
     let leaked_value = ManuallyDrop::new(value);
 
-    let path_pool_starting_string_capacity = options.path_pool_starting_string_capacity;
-
-    let path_pool = ManuallyDrop::new(
-        lifeguard::pool()
-            .with(lifeguard::StartingSize(options.path_pool_starting_size))
-            .with(lifeguard::Supplier(move || {
-                String::with_capacity(path_pool_starting_string_capacity)
-            }))
-            .build(),
-    );
-
     let mut traversal_stack: ManuallyDrop<Vec<PathValue>> = ManuallyDrop::new(vec![]);
 
     let stdout = std::io::stdout();
     let mut lock = BufWriter::new(stdout.lock());
 
-    build_and_write_paths(
-        &mut lock,
-        &leaked_value,
-        &mut traversal_stack,
-        &path_pool,
-        &options,
-    )?;
+    build_and_write_paths(&mut lock, &leaked_value, &mut traversal_stack, &options)?;
 
     lock.flush()?;
 
@@ -266,22 +265,11 @@ mod tests {
             all: true,
             json_location: None,
             separator: "@@@".to_string(),
-            path_pool_starting_size: 128,
-            path_pool_starting_string_capacity: 50,
         };
-
-        let path_pool_starting_string_capacity = options.path_pool_starting_string_capacity;
-
-        let path_pool = lifeguard::pool()
-            .with(lifeguard::StartingSize(options.path_pool_starting_size))
-            .with(lifeguard::Supplier(move || {
-                String::with_capacity(path_pool_starting_string_capacity)
-            }))
-            .build();
 
         let mut traversal_stack: Vec<PathValue> = vec![];
 
-        build_and_write_paths(&mut writer, &v, &mut traversal_stack, &path_pool, &options).unwrap();
+        build_and_write_paths(&mut writer, &v, &mut traversal_stack, &options).unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
@@ -322,22 +310,11 @@ mod tests {
             all: false,
             json_location: None,
             separator: "@@@".to_string(),
-            path_pool_starting_size: 128,
-            path_pool_starting_string_capacity: 50,
         };
-
-        let path_pool_starting_string_capacity = options.path_pool_starting_string_capacity;
-
-        let path_pool = lifeguard::pool()
-            .with(lifeguard::StartingSize(options.path_pool_starting_size))
-            .with(lifeguard::Supplier(move || {
-                String::with_capacity(path_pool_starting_string_capacity)
-            }))
-            .build();
 
         let mut traversal_stack: Vec<PathValue> = vec![];
 
-        build_and_write_paths(&mut writer, &v, &mut traversal_stack, &path_pool, &options).unwrap();
+        build_and_write_paths(&mut writer, &v, &mut traversal_stack, &options).unwrap();
 
         assert_eq!(
             std::str::from_utf8(&writer)
