@@ -72,14 +72,14 @@ fn build_and_write_paths<'a, 'b, W: Write>(
     // it only traverses the value and adds its results to the traversal_stack.
     match root_pathvalue.value {
         serde_json::Value::Object(object) => {
-            traverse_object(traversal_stack, object, &root_pathvalue, &path_pool)
+            traverse_object(traversal_stack, object, &root_pathvalue, path_pool)
         }
         serde_json::Value::Array(array) => traverse_array(
             traversal_stack,
             array,
             &root_pathvalue,
             &mut i_cache,
-            &path_pool,
+            path_pool,
         ),
         input => {
             return Err(anyhow!(
@@ -92,13 +92,13 @@ fn build_and_write_paths<'a, 'b, W: Write>(
     while let Some(pathvalue) = traversal_stack.pop() {
         match pathvalue.value {
             serde_json::Value::Object(object) if !object.is_empty() => {
-                traverse_object(traversal_stack, object, &pathvalue, &path_pool);
+                traverse_object(traversal_stack, object, &pathvalue, path_pool);
                 if options.all {
                     write_path_as_bytes(writer, &pathvalue, &options.separator)?;
                 }
             }
             serde_json::Value::Array(array) if !array.is_empty() => {
-                traverse_array(traversal_stack, array, &pathvalue, &mut i_cache, &path_pool);
+                traverse_array(traversal_stack, array, &pathvalue, &mut i_cache, path_pool);
                 if options.all {
                     write_path_as_bytes(writer, &pathvalue, &options.separator)?;
                 }
@@ -121,7 +121,7 @@ fn traverse_object<'a, 'b>(
     traversal_stack.extend(
         object
             .iter()
-            .map(|(k, v)| build_child_pathvalue(&path_pool, &pathvalue.path, k, v)),
+            .map(|(k, v)| build_child_pathvalue(path_pool, &pathvalue.path, k, v)),
     )
 }
 
@@ -146,7 +146,7 @@ fn traverse_array<'a, 'b>(
             }
         };
 
-        build_child_pathvalue(&path_pool, &pathvalue.path, istr, v)
+        build_child_pathvalue(path_pool, &pathvalue.path, istr, v)
     }))
 }
 
