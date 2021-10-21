@@ -10,7 +10,7 @@ documentation = "https://docs.rs/jindex/"
 readme = "README.md"
 keywords = ["json", "paths"]
 categories = ["command-line-utilities"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
