@@ -1,6 +1,6 @@
 [package]
 name = "jindex"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Clark Kampfe <clark.kampfe@gmail.com>"]
 license-file = "LICENSE"
 description = "Enumerate the paths through a JSON document"
@@ -13,9 +13,9 @@ categories = ["command-line-utilities"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1"
+itoa = "0.4"
 jemalloc = { package = "jemallocator", version = "0.3", optional = true }
-lifeguard = "0.6"
 serde_json = "1.0"
 structopt = "0.3"
 
@@ -26,5 +26,16 @@ nix = "0.23"
 default = ["jemalloc"]
 
 [profile.release]
+codegen-units = 1
+lto = true
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[profile.bench]
 codegen-units = 1
 lto = true

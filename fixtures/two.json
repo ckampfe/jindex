@@ -1,0 +1,13 @@
+{
+    "name": "Tom",
+    "github": "https://github.com/tomnomnom/",
+    "likes": [
+        "code",
+        "cheese",
+        "meat"
+    ],
+    "contact": {
+        "email": "mail@tomnomnom.com",
+        "twitter": "@TomNomNom"
+    }
+}
