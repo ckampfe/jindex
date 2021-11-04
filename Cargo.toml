@@ -14,8 +14,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+itoa = "0.4"
 jemalloc = { package = "jemallocator", version = "0.3", optional = true }
-lifeguard = "0.6"
 serde_json = "1.0"
 structopt = "0.3"
 
