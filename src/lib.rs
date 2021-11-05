@@ -191,24 +191,15 @@ fn is_identifier(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
 
     #[test]
     fn gron_one() {
-        let mut expected = String::new();
-        std::fs::File::open("fixtures/one.gron")
-            .unwrap()
-            .read_to_string(&mut expected)
-            .unwrap();
+        let expected = std::fs::read_to_string("fixtures/one.gron").unwrap();
 
         let mut expected: Vec<&str> = expected.split("\n").collect();
         expected.sort();
 
-        let mut input = String::new();
-        std::fs::File::open("fixtures/one.json")
-            .unwrap()
-            .read_to_string(&mut input)
-            .unwrap();
+        let input = std::fs::read_to_string("fixtures/one.json").unwrap();
 
         let parsed = serde_json::from_str(&input).unwrap();
 
@@ -225,20 +216,12 @@ mod tests {
 
     #[test]
     fn gron_two() {
-        let mut expected = String::new();
-        std::fs::File::open("fixtures/two.gron")
-            .unwrap()
-            .read_to_string(&mut expected)
-            .unwrap();
+        let expected = std::fs::read_to_string("fixtures/two.gron").unwrap();
 
         let mut expected: Vec<&str> = expected.split("\n").collect();
         expected.sort();
 
-        let mut input = String::new();
-        std::fs::File::open("fixtures/two.json")
-            .unwrap()
-            .read_to_string(&mut input)
-            .unwrap();
+        let input = std::fs::read_to_string("fixtures/two.json").unwrap();
 
         let parsed = serde_json::from_str(&input).unwrap();
 
@@ -255,20 +238,12 @@ mod tests {
 
     #[test]
     fn gron_three() {
-        let mut expected = String::new();
-        std::fs::File::open("fixtures/three.gron")
-            .unwrap()
-            .read_to_string(&mut expected)
-            .unwrap();
+        let expected = std::fs::read_to_string("fixtures/three.gron").unwrap();
 
         let mut expected: Vec<&str> = expected.split("\n").collect();
         expected.sort();
 
-        let mut input = String::new();
-        std::fs::File::open("fixtures/three.json")
-            .unwrap()
-            .read_to_string(&mut input)
-            .unwrap();
+        let input = std::fs::read_to_string("fixtures/three.json").unwrap();
 
         let parsed = serde_json::from_str(&input).unwrap();
 
@@ -285,20 +260,12 @@ mod tests {
 
     #[test]
     fn gron_github() {
-        let mut expected = String::new();
-        std::fs::File::open("fixtures/github.gron")
-            .unwrap()
-            .read_to_string(&mut expected)
-            .unwrap();
+        let expected = std::fs::read_to_string("fixtures/github.gron").unwrap();
 
         let mut expected: Vec<&str> = expected.split("\n").collect();
         expected.sort();
 
-        let mut input = String::new();
-        std::fs::File::open("fixtures/github.json")
-            .unwrap()
-            .read_to_string(&mut input)
-            .unwrap();
+        let input = std::fs::read_to_string("fixtures/github.json").unwrap();
 
         let parsed = serde_json::from_str(&input).unwrap();
 
@@ -315,20 +282,12 @@ mod tests {
 
     #[test]
     fn gron_large_line() {
-        let mut expected = String::new();
-        std::fs::File::open("fixtures/large-line.gron")
-            .unwrap()
-            .read_to_string(&mut expected)
-            .unwrap();
+        let expected = std::fs::read_to_string("fixtures/large-line.gron").unwrap();
 
         let mut expected: Vec<&str> = expected.split("\n").collect();
         expected.sort();
 
-        let mut input = String::new();
-        std::fs::File::open("fixtures/large-line.json")
-            .unwrap()
-            .read_to_string(&mut input)
-            .unwrap();
+        let input = std::fs::read_to_string("fixtures/large-line.json").unwrap();
 
         let parsed = serde_json::from_str(&input).unwrap();
 
@@ -346,11 +305,7 @@ mod tests {
     #[test]
     fn gron_big() {
         // 923k is not really that big but this is what gron itself uses
-        let mut input = String::new();
-        std::fs::File::open("fixtures/large-line.json")
-            .unwrap()
-            .read_to_string(&mut input)
-            .unwrap();
+        let input = std::fs::read_to_string("fixtures/big.json").unwrap();
 
         let parsed = serde_json::from_str(&input).unwrap();
 
