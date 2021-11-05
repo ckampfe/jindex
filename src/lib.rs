@@ -4,11 +4,11 @@ use std::io::Write;
 
 struct PathValue<'a> {
     value: &'a serde_json::Value,
-    path_components: Vec<KeyOrIndex<'a>>,
+    path_components: Vec<PathComponent<'a>>,
 }
 
 impl<'a> PathValue<'a> {
-    fn new(value: &'a serde_json::Value, path_components: Vec<KeyOrIndex<'a>>) -> Self {
+    fn new(value: &'a serde_json::Value, path_components: Vec<PathComponent<'a>>) -> Self {
         Self {
             value,
             path_components,
@@ -16,19 +16,11 @@ impl<'a> PathValue<'a> {
     }
 }
 
-// on apple aarch64 size_of reports this as being of size 24
-#[derive(Clone, Debug)]
-enum KeyOrIndex<'a> {
+#[derive(Clone, Copy, Debug)]
+enum PathComponent<'a> {
     Identifier(&'a str),
     NonIdentifier(&'a str),
     Index(usize),
-}
-
-// necessary for use with TinyVec
-impl Default for KeyOrIndex<'_> {
-    fn default() -> Self {
-        KeyOrIndex::Index(0)
-    }
 }
 
 /// Enumerate the paths through a JSON document.
@@ -36,7 +28,7 @@ pub fn jindex<W: Write>(writer: &mut W, json: &serde_json::Value) -> Result<()> 
     let mut traversal_stack: Vec<PathValue> = vec![];
 
     let root_pathvalue = PathValue::new(json, Vec::new());
-    let mut length_total = 0;
+    let mut path_components_lengths_sum = 0;
     let mut paths_seen = 0;
     let mut average_path_length;
 
@@ -60,10 +52,10 @@ pub fn jindex<W: Write>(writer: &mut W, json: &serde_json::Value) -> Result<()> 
     }
 
     while let Some(pathvalue) = traversal_stack.pop() {
-        length_total += pathvalue.path_components.len();
+        path_components_lengths_sum += pathvalue.path_components.len();
         paths_seen += 1;
 
-        average_path_length = length_total / paths_seen + 1;
+        average_path_length = path_components_lengths_sum / paths_seen + 1;
 
         match pathvalue.value {
             serde_json::Value::Object(object) => {
@@ -98,9 +90,9 @@ fn traverse_object<'a, 'b>(
         cloned.clone_from(&pathvalue.path_components);
 
         let component = if is_identifier(k) {
-            KeyOrIndex::Identifier(k)
+            PathComponent::Identifier(k)
         } else {
-            KeyOrIndex::NonIdentifier(k)
+            PathComponent::NonIdentifier(k)
         };
 
         cloned.push(component);
@@ -120,7 +112,7 @@ fn traverse_array<'a, 'b>(
 
         cloned.clone_from(&pathvalue.path_components);
 
-        cloned.push(KeyOrIndex::Index(i));
+        cloned.push(PathComponent::Index(i));
 
         PathValue::new(v, cloned)
     }))
@@ -131,16 +123,16 @@ fn write_path_as_bytes<W: Write>(writer: &mut W, pathvalue: &PathValue) -> std::
 
     for path_component in &pathvalue.path_components {
         match path_component {
-            KeyOrIndex::Identifier(s) => {
+            PathComponent::Identifier(s) => {
                 writer.write_all(b".")?;
                 writer.write_all(s.as_bytes())?;
             }
-            KeyOrIndex::NonIdentifier(s) => {
+            PathComponent::NonIdentifier(s) => {
                 writer.write_all(b"[\"")?;
                 writer.write_all(s.as_bytes())?;
                 writer.write_all(b"\"]")?;
             }
-            KeyOrIndex::Index(i) => {
+            PathComponent::Index(i) => {
                 writer.write_all(b"[")?;
                 itoa::write(&mut *writer, *i)?;
                 writer.write_all(b"]")?;
