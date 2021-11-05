@@ -166,22 +166,16 @@ fn write_path_as_bytes<W: Write>(writer: &mut W, pathvalue: &PathValue) -> std::
     Ok(())
 }
 
+const DIGITS: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
 // TODO make this real?
+// see:
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types#variables
+// https://mathiasbynens.be/notes/javascript-identifiers-es6
+//
 // TODO make this fast?
 fn is_identifier(s: &str) -> bool {
-    if s.starts_with('0')
-        || s.starts_with('1')
-        || s.starts_with('1')
-        || s.starts_with('2')
-        || s.starts_with('3')
-        || s.starts_with('4')
-        || s.starts_with('5')
-        || s.starts_with('6')
-        || s.starts_with('7')
-        || s.starts_with('8')
-        || s.starts_with('9')
-        || s.contains('-')
-    {
+    if s.starts_with(DIGITS) || s.contains('-') {
         return false;
     }
 
