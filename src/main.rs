@@ -31,8 +31,8 @@ fn main() -> Result<()> {
 
     let value: serde_json::Value = if let Some(json_location) = &options.json_location {
         let mut f = File::open(json_location)?;
-        let len = f.metadata()?.len();
-        let mut buf = Vec::with_capacity(len.try_into()?);
+        let len = f.metadata().map(|m| m.len() as usize + 1).unwrap_or(0);
+        let mut buf = Vec::with_capacity(len);
         f.read_to_end(&mut buf)?;
 
         serde_json::from_slice(&buf)?
