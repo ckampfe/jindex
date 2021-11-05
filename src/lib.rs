@@ -151,14 +151,9 @@ fn write_path_as_bytes<W: Write>(writer: &mut W, pathvalue: &PathValue) -> std::
     writer.write_all(b" = ")?;
 
     match pathvalue.value {
-        serde_json::Value::String(_)
-        | serde_json::Value::Number(_)
-        | serde_json::Value::Null
-        | serde_json::Value::Bool(_) => {
-            serde_json::to_writer(&mut *writer, pathvalue.value)?;
-        }
         serde_json::Value::Array(_) => writer.write_all(b"[]")?,
         serde_json::Value::Object(_) => writer.write_all(b"{}")?,
+        _ => serde_json::to_writer(&mut *writer, pathvalue.value)?,
     }
 
     writer.write_all(b";\n")?;
