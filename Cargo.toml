@@ -13,7 +13,7 @@ categories = ["command-line-utilities"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1"
 itoa = "0.4"
 jemalloc = { package = "jemallocator", version = "0.3", optional = true }
 serde_json = "1.0"
@@ -26,5 +26,16 @@ nix = "0.23"
 default = ["jemalloc"]
 
 [profile.release]
+codegen-units = 1
+lto = true
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[profile.bench]
 codegen-units = 1
 lto = true
