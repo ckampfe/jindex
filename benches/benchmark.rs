@@ -1,7 +1,7 @@
 use std::io::Read;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use jindex::jindex;
+use jindex::{jindex, path_value_sink::GronWriter};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut larger_inputs_group = c.benchmark_group("larger inputs");
@@ -16,7 +16,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     larger_inputs_group.bench_function("jindex big.json", |b| {
         b.iter(|| {
             let mut writer = vec![];
-            jindex(&mut writer, black_box(&json)).unwrap()
+            let mut sink = GronWriter::new(&mut writer);
+            jindex(&mut sink, black_box(&json)).unwrap()
         })
     });
 
@@ -34,7 +35,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     smaller_inputs_group.bench_function("jindex github.json", |b| {
         b.iter(|| {
             let mut writer = vec![];
-            jindex(&mut writer, black_box(&json)).unwrap()
+            let mut sink = GronWriter::new(&mut writer);
+            jindex(&mut sink, black_box(&json)).unwrap()
         })
     });
 
@@ -46,7 +48,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     smaller_inputs_group.bench_function("jindex three.json", |b| {
         b.iter(|| {
             let mut writer = vec![];
-            jindex(&mut writer, black_box(&json)).unwrap()
+            let mut sink = GronWriter::new(&mut writer);
+            jindex(&mut sink, black_box(&json)).unwrap()
         })
     });
 

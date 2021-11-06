@@ -4,6 +4,7 @@ static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
 use anyhow::Result;
 use jindex::jindex;
+use jindex::path_value_sink::GronWriter;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::mem::ManuallyDrop;
@@ -46,7 +47,9 @@ fn main() -> Result<()> {
 
     let mut lock = BufWriter::new(stdout.lock());
 
-    jindex(&mut lock, &leaked_value)?;
+    let mut sink = GronWriter::new(&mut lock);
+
+    jindex(&mut sink, &leaked_value)?;
 
     lock.flush()?;
 
