@@ -1,6 +1,7 @@
 # jindex
 
-Enumerate the paths through a JSON document.
+Enumerate the paths through a JSON document,
+with an output that is API-compatible with [gron.](https://github.com/tomnomnom/gron)
 
 [![CircleCI](https://circleci.com/gh/ckampfe/jindex.svg?style=svg)](https://circleci.com/gh/ckampfe/jindex)
 
@@ -20,7 +21,7 @@ $ cargo install --git https://github.com/ckampfe/jindex
 
 ## Examples
 
-You can pass JSON through stdin:
+You can pass JSON through stdin or from a file:
 
 ```
 $ echo '{
@@ -30,73 +31,38 @@ $ echo '{
   "d": {"e": {"f": [{}, 9, "g"]}}
 }' | jindex
 
-/a      1
-/b      2
-/c/0    "x"
-/c/1    "y"
-/c/2    "z"
-/d/e/f/0        {}
-/d/e/f/1        9
-/d/e/f/2        "g"
+json = {};
+json.d = {};
+json.d.e = {};
+json.d.e.f = [];
+json.d.e.f[2] = "g";
+json.d.e.f[1] = 9;
+json.d.e.f[0] = {};
+json.c = [];
+json.c[2] = "z";
+json.c[1] = "y";
+json.c[0] = "x";
+json.b = 2;
+json.a = 1;
 ```
-
-Or from a file:
-
-```
-$ cat simple.json
-{
-  "a": 1,
-  "b": 2,
-  "c": ["x", "y", "z"],
-  "d": {"e": {"f": [{}, 9, "g"]}}
-}
-
-$ jindex simple.json
-/a      1
-/b      2
-/c/0    "x"
-/c/1    "y"
-/c/2    "z"
-/d/e/f/0        {}
-/d/e/f/1        9
-/d/e/f/2        "g"
-```
-
-With a custom separator between the path and the value:
-
-```
-$ jindex -s@@@ simple.json
-/a@@@1
-/b@@@2
-/c/0@@@"x"
-/c/1@@@"y"
-/c/2@@@"z"
-/d/e/f/0@@@{}
-/d/e/f/1@@@9
-/d/e/f/2@@@"g"
-```
-
-Paths are done in the style of [RFC6901](https://tools.ietf.org/html/rfc6901).
 
 ## Command-line interface
 
 ```
 $ jindex -h
-jindex 0.1.0
+jindex 0.7.0
+Enumerate the paths through a JSON document
 
 USAGE:
-    jindex [FLAGS] [OPTIONS] [json-location]
+    jindex [json-location]
 
 FLAGS:
-    -a, --all        Write all path values, including composite ones
     -h, --help       Prints help information
     -V, --version    Prints version information
 
-OPTIONS:
-    -s, --separator <separator>    Separator string, defaults to tab [default:  ]
-
 ARGS:
     <json-location>    A JSON file path
+
 ```
 
 ## Path output order
