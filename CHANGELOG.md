@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.8.0 - 2021-11-08
+
+- Note that in accordance with the project's <1.0 version, this is a breaking change.
+- The output of the `jindex` CLI now matches [gron](https://github.com/tomnomnom/gron), and passes many of `gron`'s tests. In this configuration it is significantly faster than `gron` itself as proven by benchmarks.
+- If you prefer the existing [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) output format in the CLI, it should be a one or two line change to `main.rs` at most. At some point in the future I may make separate Cargo examples for both `gron` and `json_pointer` output formats that would allow for the building of separate binaries.
+- The functionality of `jindex` is now available as a library that you can use in your own code and extend through a trait. This is what is allowing the `gron` and `JSON Pointer` output formats to exist side-by-side.
+- Adds a benchmark suite that measures both the new `gron`-style output as well as the previous `JSON Pointer` style.
+- `jindex` is reliable in day-to-day use and decently well tests but I still consider it pre-1.0 as I am not 100% sure that the API design will not change slightly in the future.
+
 ## 0.7.0 - 2021-03-28
 
 - Speedup by using `ManuallyDrop` to have the OS clean up rather than running destructors

@@ -1,7 +1,7 @@
 # jindex
 
 Enumerate the paths through a JSON document,
-with an output that is API-compatible with [gron.](https://github.com/tomnomnom/gron)
+with an output that is API-compatible with [gron](https://github.com/tomnomnom/gron)
 
 [![CircleCI](https://circleci.com/gh/ckampfe/jindex.svg?style=svg)](https://circleci.com/gh/ckampfe/jindex)
 
@@ -46,11 +46,29 @@ json.b = 2;
 json.a = 1;
 ```
 
+```
+$ jindex myfile.json
+
+json = {};
+json.d = {};
+json.d.e = {};
+json.d.e.f = [];
+json.d.e.f[2] = "g";
+json.d.e.f[1] = 9;
+json.d.e.f[0] = {};
+json.c = [];
+json.c[2] = "z";
+json.c[1] = "y";
+json.c[0] = "x";
+json.b = 2;
+json.a = 1;
+```
+
 ## Command-line interface
 
 ```
 $ jindex -h
-jindex 0.7.0
+jindex 0.8.0
 Enumerate the paths through a JSON document
 
 USAGE:
@@ -67,42 +85,39 @@ ARGS:
 
 ## Path output order
 
-The order in which paths are output is undefined.
+`jindex` makes *no guarantees at all* about the order in which paths are output.
 Paths may appear depth-first, breadth-first, or any other order at all relative to their position in the input JSON document.
-Further, any ordering is not guaranteed to be stable from one version to the next,
+Further, *any ordering is not guaranteed to be stable from one version to the next*,
 as it may change to aid the implementation of new optimizations.
 If a stable order is important, I recommend using `sort` or some other after-the-fact
 mechanism, as the set of paths output from a given input document are guaranteed
-to be stable over time
-(instability of the actual member paths of the set is considered a bug).
+to be stable over time.
 
-## Benchmark
+## Performance
 
-With jemalloc (enabled by default):
+To run the benchmarks:
 
 ```
-$ ls -la ~/code/sf-city-lots-json/citylots.json
-.rw-r--r-- 189M clark  9 Apr 15:52 /Users/clark/code/sf-city-lots-json/citylots.json
+# install the benchmark runner
+$ cargo install cargo-criterion
+```
 
-$ /usr/bin/time -l jindex ~/code/sf-city-lots-json/citylots.json > /dev/null
-        2.69 real         2.31 user         0.37 sys
-1151422464  maximum resident set size
-         0  average shared memory size
-         0  average unshared data size
-         0  average unshared stack size
-    281130  page reclaims
-         0  page faults
-         0  swaps
-         0  block input operations
-         0  block output operations
-         0  messages sent
-         0  messages received
-         0  signals received
-         0  voluntary context switches
-        64  involuntary context switches
+```
+# clone the project
+$ git clone https://github.com/ckampfe/jindex
+```
+
+```
+# run the benchmarks
+$ cd jindex
+$ cargo criterion
 ```
 
 ## Features
 
 `jindex` uses [jemalloc](http://jemalloc.net/) by default for a substantial increase in throughput.
 If you do not wish to use jemalloc, you can build without it by passing the `--no-default-features` flag to Cargo.
+
+## Version policy
+
+`jindex` remains pre-1.0 and as such does not guarantee API compatibility from one version to the next. That said, `jindex` has a very small API, and is not likely to change markedly in the future. Reaching a 1.0 version is a project goal but not one I consider more important than others. If this is a problem or if you have questions please open an issue.
