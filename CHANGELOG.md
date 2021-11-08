@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.8.1 - 2021-11-08
+
+- Use `license` instead of `license-file` in `Cargo.toml`
+
 ## 0.8.0 - 2021-11-08
 
 - Note that in accordance with the project's <1.0 version, this is a breaking change.
