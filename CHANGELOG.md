@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.8.2 - 2021-11-10
+
+- Use `unicode-xid` to determine whether a string is a valid Javascript/JSON identifier or not.
+
 ## 0.8.1 - 2021-11-08
 
 - Use `license` instead of `license-file` in `Cargo.toml`

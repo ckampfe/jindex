@@ -68,7 +68,7 @@ json.a = 1;
 
 ```
 $ jindex -h
-jindex 0.8.0
+jindex 0.8.2
 Enumerate the paths through a JSON document
 
 USAGE:
