@@ -127,20 +127,18 @@ fn traverse_array<'a, 'b>(
     }))
 }
 
-const DIGITS: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-// TODO make this real?
-// see:
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types#variables
-// https://mathiasbynens.be/notes/javascript-identifiers-es6
-//
-// TODO make this fast?
 fn is_identifier(s: &str) -> bool {
-    if s.starts_with(DIGITS) || s.contains('-') {
-        return false;
-    }
+    let mut chars = s.chars();
 
-    true
+    if let Some(c) = chars.next() {
+        if unicode_xid::UnicodeXID::is_xid_start(c) {
+            chars.all(unicode_xid::UnicodeXID::is_xid_continue)
+        } else {
+            false
+        }
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]
