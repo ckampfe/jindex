@@ -3,7 +3,6 @@
 Enumerate the paths through a JSON document,
 with an output that is API-compatible with [gron](https://github.com/tomnomnom/gron)
 
-[![CircleCI](https://circleci.com/gh/ckampfe/jindex.svg?style=svg)](https://circleci.com/gh/ckampfe/jindex)
 
 ## Installation
 
