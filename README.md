@@ -3,6 +3,7 @@
 Enumerate the paths through a JSON document,
 with an output that is API-compatible with [gron](https://github.com/tomnomnom/gron)
 
+[![Rust](https://github.com/ckampfe/jindex/actions/workflows/rust.yml/badge.svg)](https://github.com/ckampfe/jindex/actions/workflows/rust.yml)
 
 ## Installation
 
