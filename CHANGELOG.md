@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- add `format` CLI option. Currently only for `gron` and `json_pointer` outputs.
+- TODO: add `json` output.
+
 ## 0.8.2 - 2021-11-10
 
 - Use `unicode-xid` to determine whether a string is a valid Javascript/JSON identifier or not.
