@@ -4,20 +4,54 @@ static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
 use anyhow::Result;
 use jindex::jindex;
-use jindex::path_value_sink::GronWriter;
+use jindex::path_value_sink::{GronWriter, JSONPointerWriter, JSONPointerWriterOptions};
+use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::mem::ManuallyDrop;
 use std::path::PathBuf;
+use std::str::FromStr;
 use structopt::StructOpt;
 
 /// Enumerate the paths through a JSON document.
 #[derive(StructOpt)]
 #[structopt(name = "jindex")]
 struct Options {
+    /// gron, json_pointer, json
+    #[structopt(short, long, default_value = "gron")]
+    format: OutputFormat,
     /// A JSON file path
     #[structopt(parse(from_str))]
     json_location: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+enum OutputFormat {
+    Gron,
+    JSONPointer,
+    Json,
+}
+
+#[derive(Debug)]
+struct OutputFormatError(String);
+
+impl<'a> Display for OutputFormatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl FromStr for OutputFormat {
+    type Err = OutputFormatError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "gron" => Ok(Self::Gron),
+            "json_pointer" => Ok(Self::JSONPointer),
+            "json" => Ok(Self::Json),
+            other => Err(OutputFormatError(other.to_owned())),
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -47,9 +81,22 @@ fn main() -> Result<()> {
 
     let mut lock = BufWriter::new(stdout.lock());
 
-    let mut sink = GronWriter::new(&mut lock);
-
-    jindex(&mut sink, &leaked_value)?;
+    match options.format {
+        OutputFormat::Gron => {
+            let mut sink = GronWriter::new(&mut lock);
+            jindex(&mut sink, &leaked_value)?;
+        }
+        OutputFormat::JSONPointer => {
+            let json_pointer_writer_options = JSONPointerWriterOptions::default();
+            let mut sink = JSONPointerWriter::new(&mut lock, json_pointer_writer_options);
+            jindex(&mut sink, &leaked_value)?;
+        }
+        OutputFormat::Json => {
+            return Err(anyhow::anyhow!(
+                "JSON output is not yet implemented. Try `gron` or `json_pointer` instead."
+            ))
+        }
+    }
 
     lock.flush()?;
 
