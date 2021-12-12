@@ -142,3 +142,25 @@ impl<'a, W: Write> PathValueSink for JSONPointerWriter<'a, W> {
         Ok(())
     }
 }
+
+/// Write `PathValue`s to the given `writer` as
+/// JSON objects separated by newlines,
+/// like `{"value":"foo","path_components":["some","paths"]}
+#[derive(Debug)]
+pub struct JsonWriter<'a, W: Write> {
+    writer: &'a mut W,
+}
+
+impl<'a, W: Write> JsonWriter<'a, W> {
+    pub fn new(writer: &'a mut W) -> Self {
+        Self { writer }
+    }
+}
+
+impl<'a, W: Write> PathValueSink for JsonWriter<'a, W> {
+    fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
+        serde_json::to_writer(&mut *self.writer, pathvalue)?;
+        self.writer.write_all(b"\n")?;
+        Ok(())
+    }
+}

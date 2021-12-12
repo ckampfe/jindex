@@ -4,6 +4,7 @@ pub mod path_value_sink;
 
 use anyhow::{anyhow, Result};
 use path_value_sink::PathValueSink;
+use serde::Serialize;
 use serde_json::json;
 
 /// Enumerate the paths through a JSON document
@@ -66,6 +67,7 @@ pub fn jindex<S: PathValueSink>(sink: &mut S, json: &serde_json::Value) -> Resul
     Ok(())
 }
 
+#[derive(Serialize)]
 pub struct PathValue<'a> {
     pub value: &'a serde_json::Value,
     pub path_components: Vec<PathComponent<'a>>,
@@ -80,7 +82,8 @@ impl<'a> PathValue<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(untagged)]
 pub enum PathComponent<'a> {
     Identifier(&'a str),
     NonIdentifier(&'a str),

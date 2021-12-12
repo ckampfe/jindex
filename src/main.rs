@@ -4,7 +4,9 @@ static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
 use anyhow::Result;
 use jindex::jindex;
-use jindex::path_value_sink::{GronWriter, JSONPointerWriter, JSONPointerWriterOptions};
+use jindex::path_value_sink::{
+    GronWriter, JSONPointerWriter, JSONPointerWriterOptions, JsonWriter,
+};
 use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
@@ -92,9 +94,8 @@ fn main() -> Result<()> {
             jindex(&mut sink, &leaked_value)?;
         }
         OutputFormat::Json => {
-            return Err(anyhow::anyhow!(
-                "JSON output is not yet implemented. Try `gron` or `json_pointer` instead."
-            ))
+            let mut sink = JsonWriter::new(&mut lock);
+            jindex(&mut sink, &leaked_value)?;
         }
     }
 

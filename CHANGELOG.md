@@ -2,8 +2,7 @@
 
 ## Unreleased
 
-- add `format` CLI option. Currently only for `gron` and `json_pointer` outputs.
-- TODO: add `json` output.
+- add `format` CLI option. Currently implementations for `gron`, `json_pointer`, and `json` outputs.
 
 ## 0.8.2 - 2021-11-10
 
