@@ -156,8 +156,8 @@ mod tests {
         fn one() {
             let expected = std::fs::read_to_string("fixtures/one.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split("\n").collect();
-            expected.sort();
+            let mut expected: Vec<&str> = expected.split('\n').collect();
+            expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/one.json").unwrap();
 
@@ -171,8 +171,8 @@ mod tests {
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
 
-            let mut challenge: Vec<&str> = challenge.split("\n").collect();
-            challenge.sort();
+            let mut challenge: Vec<&str> = challenge.split('\n').collect();
+            challenge.sort_unstable();
 
             assert_eq!(expected, challenge);
         }
@@ -181,8 +181,8 @@ mod tests {
         fn two() {
             let expected = std::fs::read_to_string("fixtures/two.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split("\n").collect();
-            expected.sort();
+            let mut expected: Vec<&str> = expected.split('\n').collect();
+            expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/two.json").unwrap();
 
@@ -194,8 +194,8 @@ mod tests {
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
 
-            let mut challenge: Vec<&str> = challenge.split("\n").collect();
-            challenge.sort();
+            let mut challenge: Vec<&str> = challenge.split('\n').collect();
+            challenge.sort_unstable();
 
             assert_eq!(expected, challenge);
         }
@@ -204,8 +204,8 @@ mod tests {
         fn three() {
             let expected = std::fs::read_to_string("fixtures/three.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split("\n").collect();
-            expected.sort();
+            let mut expected: Vec<&str> = expected.split('\n').collect();
+            expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/three.json").unwrap();
 
@@ -217,8 +217,8 @@ mod tests {
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
 
-            let mut challenge: Vec<&str> = challenge.split("\n").collect();
-            challenge.sort();
+            let mut challenge: Vec<&str> = challenge.split('\n').collect();
+            challenge.sort_unstable();
 
             assert_eq!(expected, challenge);
         }
@@ -227,8 +227,8 @@ mod tests {
         fn github() {
             let expected = std::fs::read_to_string("fixtures/github.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split("\n").collect();
-            expected.sort();
+            let mut expected: Vec<&str> = expected.split('\n').collect();
+            expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/github.json").unwrap();
 
@@ -240,8 +240,8 @@ mod tests {
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
 
-            let mut challenge: Vec<&str> = challenge.split("\n").collect();
-            challenge.sort();
+            let mut challenge: Vec<&str> = challenge.split('\n').collect();
+            challenge.sort_unstable();
 
             assert_eq!(expected, challenge);
         }
@@ -250,8 +250,8 @@ mod tests {
         fn large_line() {
             let expected = std::fs::read_to_string("fixtures/large-line.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split("\n").collect();
-            expected.sort();
+            let mut expected: Vec<&str> = expected.split('\n').collect();
+            expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/large-line.json").unwrap();
 
@@ -263,8 +263,8 @@ mod tests {
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
 
-            let mut challenge: Vec<&str> = challenge.split("\n").collect();
-            challenge.sort();
+            let mut challenge: Vec<&str> = challenge.split('\n').collect();
+            challenge.sort_unstable();
 
             assert_eq!(expected, challenge);
         }
@@ -280,8 +280,6 @@ mod tests {
             let mut sink = GronWriter::new(&mut challenge);
             // simply asserting that we don't panic here
             jindex(&mut sink, &parsed).unwrap();
-
-            assert!(true)
         }
     }
 
