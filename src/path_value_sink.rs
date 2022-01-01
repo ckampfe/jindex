@@ -49,7 +49,9 @@ impl<'a, W: Write> PathValueSink for GronWriter<'a, W> {
                 }
                 PathComponent::Index(i) => {
                     self.writer.write_all(b"[")?;
-                    itoa::write(&mut *self.writer, *i)?;
+                    let mut buf = itoa::Buffer::new();
+                    let out = buf.format(*i);
+                    self.writer.write_all(out.as_bytes())?;
                     self.writer.write_all(b"]")?;
                 }
             }
@@ -104,6 +106,7 @@ const FORWARD_SLASH: char = '/';
 const JSON_POINTER_SPECIAL_CHARS: &[char] = &[TILDE, FORWARD_SLASH];
 
 impl<'a, W: Write> PathValueSink for JSONPointerWriter<'a, W> {
+    #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
         let should_write = match (self.options.only_terminals, pathvalue.value) {
             (true, serde_json::Value::Array(a)) if !a.is_empty() => false,
@@ -129,7 +132,9 @@ impl<'a, W: Write> PathValueSink for JSONPointerWriter<'a, W> {
                         }
                     }
                     PathComponent::Index(i) => {
-                        itoa::write(&mut *self.writer, *i)?;
+                        let mut buf = itoa::Buffer::new();
+                        let out = buf.format(*i);
+                        self.writer.write_all(out.as_bytes())?;
                     }
                 }
             }
@@ -158,6 +163,7 @@ impl<'a, W: Write> JsonWriter<'a, W> {
 }
 
 impl<'a, W: Write> PathValueSink for JsonWriter<'a, W> {
+    #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
         serde_json::to_writer(&mut *self.writer, pathvalue)?;
         self.writer.write_all(b"\n")?;
