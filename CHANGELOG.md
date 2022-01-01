@@ -3,6 +3,8 @@
 ## Unreleased
 
 - add `format` CLI option. Currently implementations for `gron`, `json_pointer`, and `json` outputs.
+- fix clippys on tests
+- bump itoa to version 1
 
 ## 0.8.2 - 2021-11-10
 
