@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.0 - 2022-01-10
+
 - Add `format` CLI option. Currently implementations for `gron`, `json_pointer`, and `json` outputs.
 - Breaking change: all formatters now only print scalars by default. Scalars are defined as: JSON strings, numbers, booleans, nulls, as well as empty objects and empty arrays. I will likely add back the ability to print all values (scalars and aggregates) at some point soon. This breaks API compatibility with the `gron` project, but I think this is the correct choice: outputing `{}` or `[]` for an object or array that is not empty is misleading.
 - Fix clippys on tests
