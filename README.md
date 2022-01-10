@@ -56,7 +56,7 @@ json.b = 2;
 json.a = 1;
 ```
 
-With the [json_pointer]() format option:
+With the [json_pointer](https://datatracker.ietf.org/doc/html/rfc6901) format option:
 
 ```
 $ jindex -fjson_pointer myfile.json
