@@ -5,7 +5,8 @@ static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 use anyhow::Result;
 use jindex::jindex;
 use jindex::path_value_sink::{
-    GronWriter, JSONPointerWriter, JSONPointerWriterOptions, JsonWriter,
+    GronWriter, GronWriterOptions, JSONPointerWriter, JSONPointerWriterOptions, JSONWriter,
+    JsonWriterOptions,
 };
 use std::fmt::Display;
 use std::fs::File;
@@ -85,7 +86,8 @@ fn main() -> Result<()> {
 
     match options.format {
         OutputFormat::Gron => {
-            let mut sink = GronWriter::new(&mut lock);
+            let gron_writer_options = GronWriterOptions::default();
+            let mut sink = GronWriter::new(&mut lock, gron_writer_options);
             jindex(&mut sink, &leaked_value)?;
         }
         OutputFormat::JSONPointer => {
@@ -94,7 +96,8 @@ fn main() -> Result<()> {
             jindex(&mut sink, &leaked_value)?;
         }
         OutputFormat::Json => {
-            let mut sink = JsonWriter::new(&mut lock);
+            let json_writer_options = JsonWriterOptions::default();
+            let mut sink = JSONWriter::new(&mut lock, json_writer_options);
             jindex(&mut sink, &leaked_value)?;
         }
     }

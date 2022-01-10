@@ -21,7 +21,7 @@ $ cargo install --git https://github.com/ckampfe/jindex
 
 ## Examples
 
-You can pass JSON through stdin or from a file:
+You can pass JSON through stdin:
 
 ```
 $ echo '{
@@ -31,37 +31,57 @@ $ echo '{
   "d": {"e": {"f": [{}, 9, "g"]}}
 }' | jindex
 
-json = {};
-json.d = {};
-json.d.e = {};
-json.d.e.f = [];
 json.d.e.f[2] = "g";
 json.d.e.f[1] = 9;
 json.d.e.f[0] = {};
-json.c = [];
 json.c[2] = "z";
 json.c[1] = "y";
 json.c[0] = "x";
 json.b = 2;
 json.a = 1;
 ```
+
+or from a file:
 
 ```
 $ jindex myfile.json
 
-json = {};
-json.d = {};
-json.d.e = {};
-json.d.e.f = [];
 json.d.e.f[2] = "g";
 json.d.e.f[1] = 9;
 json.d.e.f[0] = {};
-json.c = [];
 json.c[2] = "z";
 json.c[1] = "y";
 json.c[0] = "x";
 json.b = 2;
 json.a = 1;
+```
+
+With the [json_pointer]() format option:
+
+```
+$ jindex -fjson_pointer myfile.json
+/d/e/f/2        "g"
+/d/e/f/1        9
+/d/e/f/0        {}
+/c/2    "z"
+/c/1    "y"
+/c/0    "x"
+/b      2
+/a      1
+```
+
+With the `json` format option:
+
+```
+jindex -fjson myfile.json
+{"path_components":["d","e","f",2],"value":"g"}
+{"path_components":["d","e","f",1],"value":9}
+{"path_components":["d","e","f",0],"value":{}}
+{"path_components":["c",2],"value":"z"}
+{"path_components":["c",1],"value":"y"}
+{"path_components":["c",0],"value":"x"}
+{"path_components":["b"],"value":2}
+{"path_components":["a"],"value":1}
 ```
 
 ## Command-line interface
@@ -72,11 +92,14 @@ jindex 0.8.2
 Enumerate the paths through a JSON document
 
 USAGE:
-    jindex [json-location]
+    jindex [OPTIONS] [json-location]
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
+
+OPTIONS:
+    -f, --format <format>    gron, json_pointer, json [default: gron]
 
 ARGS:
     <json-location>    A JSON file path

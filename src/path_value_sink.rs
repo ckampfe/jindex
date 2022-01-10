@@ -23,49 +23,67 @@ pub trait PathValueSink {
 #[derive(Debug)]
 pub struct GronWriter<'a, W: Write> {
     writer: &'a mut W,
+    options: GronWriterOptions,
 }
 
 impl<'a, W: Write> GronWriter<'a, W> {
-    pub fn new(writer: &'a mut W) -> Self {
-        Self { writer }
+    pub fn new(writer: &'a mut W, options: GronWriterOptions) -> Self {
+        Self { writer, options }
+    }
+}
+
+#[derive(Debug)]
+pub struct GronWriterOptions {
+    pub only_scalars: bool,
+}
+
+impl Default for GronWriterOptions {
+    fn default() -> Self {
+        Self { only_scalars: true }
     }
 }
 
 impl<'a, W: Write> PathValueSink for GronWriter<'a, W> {
     #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
-        self.writer.write_all(b"json")?;
+        let should_write = if self.options.only_scalars {
+            is_scalar(pathvalue.value)
+        } else {
+            true
+        };
 
-        for path_component in &pathvalue.path_components {
-            match path_component {
-                PathComponent::Identifier(s) => {
-                    self.writer.write_all(b".")?;
-                    self.writer.write_all(s.as_bytes())?;
-                }
-                PathComponent::NonIdentifier(s) => {
-                    self.writer.write_all(b"[\"")?;
-                    self.writer.write_all(s.as_bytes())?;
-                    self.writer.write_all(b"\"]")?;
-                }
-                PathComponent::Index(i) => {
-                    self.writer.write_all(b"[")?;
-                    let mut buf = itoa::Buffer::new();
-                    let out = buf.format(*i);
-                    self.writer.write_all(out.as_bytes())?;
-                    self.writer.write_all(b"]")?;
+        let should_write = should_write && !pathvalue.path_components.is_empty();
+
+        if should_write {
+            self.writer.write_all(b"json")?;
+
+            for path_component in &pathvalue.path_components {
+                match path_component {
+                    PathComponent::Identifier(s) => {
+                        self.writer.write_all(b".")?;
+                        self.writer.write_all(s.as_bytes())?;
+                    }
+                    PathComponent::NonIdentifier(s) => {
+                        self.writer.write_all(b"[\"")?;
+                        self.writer.write_all(s.as_bytes())?;
+                        self.writer.write_all(b"\"]")?;
+                    }
+                    PathComponent::Index(i) => {
+                        self.writer.write_all(b"[")?;
+                        let mut buf = itoa::Buffer::new();
+                        let out = buf.format(*i);
+                        self.writer.write_all(out.as_bytes())?;
+                        self.writer.write_all(b"]")?;
+                    }
                 }
             }
+
+            self.writer.write_all(b" = ")?;
+
+            serde_json::to_writer(&mut *self.writer, pathvalue.value)?;
+
+            self.writer.write_all(b";\n")?;
         }
-
-        self.writer.write_all(b" = ")?;
-
-        match pathvalue.value {
-            serde_json::Value::Array(_) => self.writer.write_all(b"[]")?,
-            serde_json::Value::Object(_) => self.writer.write_all(b"{}")?,
-            _ => serde_json::to_writer(&mut *self.writer, pathvalue.value)?,
-        }
-
-        self.writer.write_all(b";\n")?;
 
         Ok(())
     }
@@ -88,15 +106,15 @@ impl<'a, W: Write> JSONPointerWriter<'a, W> {
 
 #[derive(Debug)]
 pub struct JSONPointerWriterOptions<'a> {
+    pub only_scalars: bool,
     pub separator: &'a str,
-    pub only_terminals: bool,
 }
 
 impl Default for JSONPointerWriterOptions<'_> {
     fn default() -> Self {
         Self {
+            only_scalars: true,
             separator: "\t",
-            only_terminals: true,
         }
     }
 }
@@ -108,11 +126,12 @@ const JSON_POINTER_SPECIAL_CHARS: &[char] = &[TILDE, FORWARD_SLASH];
 impl<'a, W: Write> PathValueSink for JSONPointerWriter<'a, W> {
     #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
-        let should_write = match (self.options.only_terminals, pathvalue.value) {
-            (true, serde_json::Value::Array(a)) if !a.is_empty() => false,
-            (true, serde_json::Value::Object(o)) if !o.is_empty() => false,
-            _ => true,
+        let should_write = if self.options.only_scalars {
+            is_scalar(pathvalue.value)
+        } else {
+            true
         };
+
         let should_write = should_write && !pathvalue.path_components.is_empty();
 
         if should_write {
@@ -150,23 +169,59 @@ impl<'a, W: Write> PathValueSink for JSONPointerWriter<'a, W> {
 
 /// Write `PathValue`s to the given `writer` as
 /// JSON objects separated by newlines,
-/// like `{"value":"foo","path_components":["some","paths"]}
+/// like `{"path_components":["some","paths"],"value":"foo"}
 #[derive(Debug)]
-pub struct JsonWriter<'a, W: Write> {
+pub struct JSONWriter<'a, W: Write> {
     writer: &'a mut W,
+    options: JsonWriterOptions,
 }
 
-impl<'a, W: Write> JsonWriter<'a, W> {
-    pub fn new(writer: &'a mut W) -> Self {
-        Self { writer }
+impl<'a, W: Write> JSONWriter<'a, W> {
+    pub fn new(writer: &'a mut W, options: JsonWriterOptions) -> Self {
+        Self { writer, options }
     }
 }
 
-impl<'a, W: Write> PathValueSink for JsonWriter<'a, W> {
+#[derive(Debug)]
+pub struct JsonWriterOptions {
+    pub only_scalars: bool,
+}
+
+impl Default for JsonWriterOptions {
+    fn default() -> Self {
+        Self { only_scalars: true }
+    }
+}
+
+impl<'a, W: Write> PathValueSink for JSONWriter<'a, W> {
     #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
-        serde_json::to_writer(&mut *self.writer, pathvalue)?;
-        self.writer.write_all(b"\n")?;
+        let should_write = if self.options.only_scalars {
+            is_scalar(pathvalue.value)
+        } else {
+            true
+        };
+
+        let should_write = should_write && !pathvalue.path_components.is_empty();
+
+        if should_write {
+            serde_json::to_writer(&mut *self.writer, pathvalue)?;
+            self.writer.write_all(b"\n")?;
+        }
+
         Ok(())
+    }
+}
+
+#[inline]
+fn is_scalar(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::String(_)
+        | serde_json::Value::Number(_)
+        | serde_json::Value::Bool(_)
+        | serde_json::Value::Null => true,
+        serde_json::Value::Array(a) if a.is_empty() => true,
+        serde_json::Value::Object(o) if o.is_empty() => true,
+        _ => false,
     }
 }

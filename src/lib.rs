@@ -67,10 +67,10 @@ pub fn jindex<S: PathValueSink>(sink: &mut S, json: &serde_json::Value) -> Resul
     Ok(())
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct PathValue<'a> {
-    pub value: &'a serde_json::Value,
     pub path_components: Vec<PathComponent<'a>>,
+    pub value: &'a serde_json::Value,
 }
 
 impl<'a> PathValue<'a> {
@@ -150,13 +150,16 @@ mod tests {
 
     mod gron {
         use super::*;
-        use crate::path_value_sink::GronWriter;
+        use crate::path_value_sink::{GronWriter, GronWriterOptions};
 
         #[test]
         fn one() {
             let expected = std::fs::read_to_string("fixtures/one.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split('\n').collect();
+            let mut expected: Vec<&str> = expected
+                .split('\n')
+                .filter(|line| !line.is_empty())
+                .collect();
             expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/one.json").unwrap();
@@ -165,7 +168,8 @@ mod tests {
 
             let mut challenge = Vec::new();
 
-            let mut sink = GronWriter::new(&mut challenge);
+            let options = GronWriterOptions::default();
+            let mut sink = GronWriter::new(&mut challenge, options);
 
             jindex(&mut sink, &parsed).unwrap();
             let challenge = String::from_utf8(challenge).unwrap();
@@ -181,7 +185,10 @@ mod tests {
         fn two() {
             let expected = std::fs::read_to_string("fixtures/two.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split('\n').collect();
+            let mut expected: Vec<&str> = expected
+                .split('\n')
+                .filter(|line| !line.is_empty())
+                .collect();
             expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/two.json").unwrap();
@@ -189,7 +196,8 @@ mod tests {
             let parsed = serde_json::from_str(&input).unwrap();
 
             let mut challenge = Vec::new();
-            let mut sink = GronWriter::new(&mut challenge);
+            let options = GronWriterOptions::default();
+            let mut sink = GronWriter::new(&mut challenge, options);
             jindex(&mut sink, &parsed).unwrap();
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
@@ -204,7 +212,10 @@ mod tests {
         fn three() {
             let expected = std::fs::read_to_string("fixtures/three.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split('\n').collect();
+            let mut expected: Vec<&str> = expected
+                .split('\n')
+                .filter(|line| !line.is_empty())
+                .collect();
             expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/three.json").unwrap();
@@ -212,7 +223,8 @@ mod tests {
             let parsed = serde_json::from_str(&input).unwrap();
 
             let mut challenge = Vec::new();
-            let mut sink = GronWriter::new(&mut challenge);
+            let options = GronWriterOptions::default();
+            let mut sink = GronWriter::new(&mut challenge, options);
             jindex(&mut sink, &parsed).unwrap();
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
@@ -227,7 +239,10 @@ mod tests {
         fn github() {
             let expected = std::fs::read_to_string("fixtures/github.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split('\n').collect();
+            let mut expected: Vec<&str> = expected
+                .split('\n')
+                .filter(|line| !line.is_empty())
+                .collect();
             expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/github.json").unwrap();
@@ -235,7 +250,8 @@ mod tests {
             let parsed = serde_json::from_str(&input).unwrap();
 
             let mut challenge = Vec::new();
-            let mut sink = GronWriter::new(&mut challenge);
+            let options = GronWriterOptions::default();
+            let mut sink = GronWriter::new(&mut challenge, options);
             jindex(&mut sink, &parsed).unwrap();
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
@@ -250,7 +266,10 @@ mod tests {
         fn large_line() {
             let expected = std::fs::read_to_string("fixtures/large-line.gron").unwrap();
 
-            let mut expected: Vec<&str> = expected.split('\n').collect();
+            let mut expected: Vec<&str> = expected
+                .split('\n')
+                .filter(|line| !line.is_empty())
+                .collect();
             expected.sort_unstable();
 
             let input = std::fs::read_to_string("fixtures/large-line.json").unwrap();
@@ -258,7 +277,8 @@ mod tests {
             let parsed = serde_json::from_str(&input).unwrap();
 
             let mut challenge = Vec::new();
-            let mut sink = GronWriter::new(&mut challenge);
+            let options = GronWriterOptions::default();
+            let mut sink = GronWriter::new(&mut challenge, options);
             jindex(&mut sink, &parsed).unwrap();
             let challenge = String::from_utf8(challenge).unwrap();
             let challenge = challenge.trim();
@@ -277,7 +297,8 @@ mod tests {
             let parsed = serde_json::from_str(&input).unwrap();
 
             let mut challenge = Vec::new();
-            let mut sink = GronWriter::new(&mut challenge);
+            let options = GronWriterOptions::default();
+            let mut sink = GronWriter::new(&mut challenge, options);
             // simply asserting that we don't panic here
             jindex(&mut sink, &parsed).unwrap();
         }
@@ -304,7 +325,7 @@ mod tests {
                 &mut challenge,
                 JSONPointerWriterOptions {
                     separator: "@@@",
-                    only_terminals: false,
+                    only_scalars: false,
                 },
             );
 
@@ -350,7 +371,7 @@ mod tests {
                 &mut challenge,
                 JSONPointerWriterOptions {
                     separator: "@@@",
-                    only_terminals: true,
+                    only_scalars: true,
                 },
             );
 
@@ -424,7 +445,7 @@ mod tests {
                 &mut challenge,
                 JSONPointerWriterOptions {
                     separator: "@@@",
-                    only_terminals: false,
+                    only_scalars: false,
                 },
             );
 
@@ -435,6 +456,96 @@ mod tests {
                 .split('\n')
                 .filter(|s| !s.is_empty())
                 .collect::<HashSet<&str>>();
+
+            assert_eq!(challenge, expected);
+        }
+    }
+
+    mod json {
+        use crate::path_value_sink::{JSONWriter, JsonWriterOptions};
+
+        use super::*;
+        use std::collections::HashSet;
+
+        #[test]
+        fn simple_document() {
+            let v: serde_json::Value = serde_json::json!(
+                {
+                    "a": 1,
+                    "b": 2,
+                    "c": ["x", "y", "z"],
+                    "d": {"e": {"f": [{}, 9, "g"]}}
+                }
+            );
+
+            let mut challenge = Vec::new();
+            let mut sink = JSONWriter::new(
+                &mut challenge,
+                JsonWriterOptions {
+                    only_scalars: false,
+                },
+            );
+
+            jindex(&mut sink, &v).unwrap();
+
+            let challenge = std::str::from_utf8(&challenge)
+                .unwrap()
+                .split('\n')
+                .filter(|s| !s.is_empty())
+                .collect::<HashSet<&str>>();
+
+            let expected = HashSet::from([
+                r#"{"path_components":["a"],"value":1}"#,
+                r#"{"path_components":["b"],"value":2}"#,
+                r#"{"path_components":["c"],"value":["x","y","z"]}"#,
+                r#"{"path_components":["d"],"value":{"e":{"f":[{},9,"g"]}}}"#,
+                r#"{"path_components":["c",0],"value":"x"}"#,
+                r#"{"path_components":["c",1],"value":"y"}"#,
+                r#"{"path_components":["c",2],"value":"z"}"#,
+                r#"{"path_components":["d","e"],"value":{"f":[{},9,"g"]}}"#,
+                r#"{"path_components":["d","e","f"],"value":[{},9,"g"]}"#,
+                r#"{"path_components":["d","e","f",0],"value":{}}"#,
+                r#"{"path_components":["d","e","f",1],"value":9}"#,
+                r#"{"path_components":["d","e","f",2],"value":"g"}"#,
+            ]);
+
+            assert_eq!(challenge, expected)
+        }
+
+        #[test]
+        fn only_terminals() {
+            let v: serde_json::Value = serde_json::json!(
+                {
+                    "a": 1,
+                    "b": 2,
+                    "c": ["x", "y", "z"],
+                    "d": {"e": {"f": [{}, 9, "g", []]}}
+                }
+            );
+
+            let mut challenge = Vec::new();
+            let mut sink =
+                JSONWriter::new(&mut challenge, JsonWriterOptions { only_scalars: true });
+
+            jindex(&mut sink, &v).unwrap();
+
+            let challenge = std::str::from_utf8(&challenge)
+                .unwrap()
+                .split('\n')
+                .filter(|s| !s.is_empty())
+                .collect::<HashSet<&str>>();
+
+            let expected = HashSet::from([
+                r#"{"path_components":["a"],"value":1}"#,
+                r#"{"path_components":["b"],"value":2}"#,
+                r#"{"path_components":["c",0],"value":"x"}"#,
+                r#"{"path_components":["c",1],"value":"y"}"#,
+                r#"{"path_components":["c",2],"value":"z"}"#,
+                r#"{"path_components":["d","e","f",0],"value":{}}"#,
+                r#"{"path_components":["d","e","f",1],"value":9}"#,
+                r#"{"path_components":["d","e","f",2],"value":"g"}"#,
+                r#"{"path_components":["d","e","f",3],"value":[]}"#,
+            ]);
 
             assert_eq!(challenge, expected);
         }
