@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove `structopt` and use `clap`'s derive functionality instead
+
 ## 0.9.0 - 2022-01-10
 
 - Add `format` CLI option. Currently implementations for `gron`, `json_pointer`, and `json` outputs.

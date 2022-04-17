@@ -3,28 +3,28 @@
 static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
 use anyhow::Result;
+use clap::Parser;
 use jindex::jindex;
 use jindex::path_value_sink::{
     GronWriter, GronWriterOptions, JSONPointerWriter, JSONPointerWriterOptions, JSONWriter,
     JsonWriterOptions,
 };
-use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::mem::ManuallyDrop;
 use std::path::PathBuf;
 use std::str::FromStr;
-use structopt::StructOpt;
 
 /// Enumerate the paths through a JSON document.
-#[derive(StructOpt)]
-#[structopt(name = "jindex")]
+#[derive(Parser, Debug)]
+#[clap(author, version, about, name = "jindex")]
 struct Options {
     /// gron, json_pointer, json
-    #[structopt(short, long, default_value = "gron")]
+    #[clap(short, long, default_value = "gron")]
     format: OutputFormat,
+
     /// A JSON file path
-    #[structopt(parse(from_str))]
+    #[clap(parse(from_str))]
     json_location: Option<PathBuf>,
 }
 
@@ -35,24 +35,15 @@ enum OutputFormat {
     Json,
 }
 
-#[derive(Debug)]
-struct OutputFormatError(String);
-
-impl<'a> Display for OutputFormatError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 impl FromStr for OutputFormat {
-    type Err = OutputFormatError;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "gron" => Ok(Self::Gron),
             "json_pointer" => Ok(Self::JSONPointer),
             "json" => Ok(Self::Json),
-            other => Err(OutputFormatError(other.to_owned())),
+            other => Err(anyhow::anyhow!(other.to_owned())),
         }
     }
 }
@@ -65,7 +56,7 @@ fn main() -> Result<()> {
         let _ = unsafe { signal::signal(signal::Signal::SIGPIPE, signal::SigHandler::SigDfl)? };
     }
 
-    let options = Options::from_args();
+    let options = Options::parse();
 
     let value: serde_json::Value = if let Some(json_location) = &options.json_location {
         let mut f = File::open(json_location)?;
