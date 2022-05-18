@@ -5,7 +5,8 @@ pub mod path_value_sink;
 use anyhow::{anyhow, Result};
 use path_value_sink::PathValueSink;
 use serde::Serialize;
-use serde_json::json;
+
+const DEFAULT_PATH_COMPONENTS_CAPACITY: usize = std::mem::size_of::<usize>();
 
 /// Enumerate the paths through a JSON document
 ///
@@ -14,49 +15,24 @@ use serde_json::json;
 /// containing the path to reach that node (as `Vec` of [PathComponent]),
 /// and the value ([serde_json::Value]) at that node.
 pub fn jindex<S: PathValueSink>(sink: &mut S, json: &serde_json::Value) -> Result<()> {
-    let mut traversal_stack: Vec<PathValue> = vec![];
-
-    let root_pathvalue = PathValue::new(json, Vec::new());
-    let mut path_components_lengths_sum = 0;
-    let mut paths_seen = 0;
-    let mut average_path_length;
-
-    // for the root pathvalue, we run special case traversal that does not do IO.
-    // it only traverses the value and adds its results to the traversal_stack.
-    match root_pathvalue.value {
-        serde_json::Value::Object(object) => {
-            sink.handle_pathvalue(&PathValue::new(&json!({}), Vec::new()))?;
-            traverse_object(&mut traversal_stack, object, &root_pathvalue, 0);
-        }
-        serde_json::Value::Array(array) => {
-            sink.handle_pathvalue(&PathValue::new(&json!([]), Vec::new()))?;
-            traverse_array(&mut traversal_stack, array, &root_pathvalue, 0)
-        }
-        input => {
-            return Err(anyhow!(
-                "input value must be either a JSON array or JSON object, got: {}",
-                input
-            ))
-        }
+    if !json.is_object() && !json.is_array() {
+        return Err(anyhow!(
+            "input value must be either a JSON array or JSON object, got: {}",
+            json
+        ));
     }
 
+    let root_pathvalue = PathValue::new(json, Vec::new());
+
+    let mut traversal_stack: Vec<PathValue> = vec![root_pathvalue];
+
     while let Some(pathvalue) = traversal_stack.pop() {
-        path_components_lengths_sum += pathvalue.path_components.len();
-        paths_seen += 1;
-
-        average_path_length = path_components_lengths_sum / paths_seen + 1;
-
         match pathvalue.value {
             serde_json::Value::Object(object) => {
-                traverse_object(
-                    &mut traversal_stack,
-                    object,
-                    &pathvalue,
-                    average_path_length,
-                );
+                traverse_object(&mut traversal_stack, object, &pathvalue);
             }
             serde_json::Value::Array(array) => {
-                traverse_array(&mut traversal_stack, array, &pathvalue, average_path_length);
+                traverse_array(&mut traversal_stack, array, &pathvalue);
             }
             _terminal_value => (),
         }
@@ -94,10 +70,9 @@ fn traverse_object<'a, 'b>(
     traversal_stack: &'b mut Vec<PathValue<'a>>,
     object: &'a serde_json::Map<String, serde_json::Value>,
     pathvalue: &PathValue<'a>,
-    path_allocation_size: usize,
 ) {
     traversal_stack.extend(object.iter().map(|(k, v)| {
-        let mut cloned = Vec::with_capacity(path_allocation_size);
+        let mut cloned = Vec::with_capacity(DEFAULT_PATH_COMPONENTS_CAPACITY);
 
         cloned.clone_from(&pathvalue.path_components);
 
@@ -117,10 +92,9 @@ fn traverse_array<'a, 'b>(
     traversal_stack: &'b mut Vec<PathValue<'a>>,
     array: &'a [serde_json::Value],
     pathvalue: &PathValue<'a>,
-    path_allocation_size: usize,
 ) {
     traversal_stack.extend(array.iter().enumerate().map(|(i, v)| {
-        let mut cloned = Vec::with_capacity(path_allocation_size);
+        let mut cloned = Vec::with_capacity(DEFAULT_PATH_COMPONENTS_CAPACITY);
 
         cloned.clone_from(&pathvalue.path_components);
 
