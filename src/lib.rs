@@ -108,11 +108,7 @@ fn is_identifier(s: &str) -> bool {
     let mut chars = s.chars();
 
     if let Some(c) = chars.next() {
-        if unicode_xid::UnicodeXID::is_xid_start(c) {
-            chars.all(unicode_xid::UnicodeXID::is_xid_continue)
-        } else {
-            false
-        }
+        unicode_ident::is_xid_start(c) && chars.all(unicode_ident::is_xid_continue)
     } else {
         false
     }
