@@ -107,11 +107,8 @@ fn traverse_array<'a, 'b>(
 fn is_identifier(s: &str) -> bool {
     let mut chars = s.chars();
 
-    if let Some(c) = chars.next() {
-        unicode_ident::is_xid_start(c) && chars.all(unicode_ident::is_xid_continue)
-    } else {
-        false
-    }
+    chars.next().map_or(false, unicode_ident::is_xid_start)
+        && chars.all(unicode_ident::is_xid_continue)
 }
 
 #[cfg(test)]
