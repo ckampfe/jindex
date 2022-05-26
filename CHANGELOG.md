@@ -6,6 +6,7 @@
 - Set default pathvalue components capacity to be the machine wordsize (8 elements on 64-bit, 4 elements on 32-bit)
 -  `nix` dependency: use only the `signal` feature
 - use `unicode-ident`, remove `unicode-xid`
+- use `tikv-jemallocator`, remove `jemallocator`
 
 ## 0.9.0 - 2022-01-10
 
