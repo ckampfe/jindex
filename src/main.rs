@@ -3,7 +3,7 @@
 static ALLOC: jemalloc::Jemalloc = jemalloc::Jemalloc;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use jindex::jindex;
 use jindex::path_value_sink::{
     GronWriter, GronWriterOptions, JSONPointerWriter, JSONPointerWriterOptions, JSONWriter,
@@ -13,39 +13,26 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::mem::ManuallyDrop;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 /// Enumerate the paths through a JSON document.
 #[derive(Parser, Debug)]
 #[clap(author, version, about, name = "jindex")]
 struct Options {
     /// gron, json_pointer, json
-    #[clap(short, long, default_value = "gron")]
+    #[arg(short, long, value_enum)]
     format: OutputFormat,
 
     /// A JSON file path
-    #[clap(parse(from_str))]
+    #[arg()]
     json_location: Option<PathBuf>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Default, ValueEnum)]
 enum OutputFormat {
+    #[default]
     Gron,
     JSONPointer,
     Json,
-}
-
-impl FromStr for OutputFormat {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "gron" => Ok(Self::Gron),
-            "json_pointer" => Ok(Self::JSONPointer),
-            "json" => Ok(Self::Json),
-            other => Err(anyhow::anyhow!(other.to_owned())),
-        }
-    }
 }
 
 fn main() -> Result<()> {
