@@ -2,11 +2,16 @@
 
 ## Unreleased
 
-- Remove `structopt` and use `clap`'s derive functionality instead
+## 0.10.0 - 2023-03-26
+
 - Set default pathvalue components capacity to be the machine wordsize (8 elements on 64-bit, 4 elements on 32-bit)
--  `nix` dependency: use only the `signal` feature
-- use `unicode-ident`, remove `unicode-xid`
-- use `tikv-jemallocator`, remove `jemallocator`
+- Remove `structopt` and use `clap`'s derive functionality instead
+- Bump `nix` to version `0.26`
+- `nix` dependency: use only the `signal` feature
+- Use `unicode-ident`, remove `unicode-xid`
+- Use `tikv-jemallocator`, remove `jemallocator`
+- Bump many transitive deps
+- Use more descriptive lifetimes in `lib`, `main`, and `path_value_sink`
 
 ## 0.9.0 - 2022-01-10
 
