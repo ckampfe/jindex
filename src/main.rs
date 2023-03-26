@@ -9,8 +9,7 @@ use jindex::path_value_sink::{
     GronWriter, GronWriterOptions, JSONPointerWriter, JSONPointerWriterOptions, JSONWriter,
     JsonWriterOptions,
 };
-use std::fs::File;
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufWriter, Write};
 use std::mem::ManuallyDrop;
 use std::path::PathBuf;
 
@@ -19,7 +18,7 @@ use std::path::PathBuf;
 #[clap(author, version, about, name = "jindex")]
 struct Options {
     /// gron, json_pointer, json
-    #[arg(short, long, value_enum)]
+    #[arg(short, long, value_enum, default_value_t = OutputFormat::Gron)]
     format: OutputFormat,
 
     /// A JSON file path
@@ -46,11 +45,7 @@ fn main() -> Result<()> {
     let options = Options::parse();
 
     let value: serde_json::Value = if let Some(json_location) = &options.json_location {
-        let mut f = File::open(json_location)?;
-        let len = f.metadata().map(|m| m.len() as usize + 1).unwrap_or(0);
-        let mut buf = Vec::with_capacity(len);
-        f.read_to_end(&mut buf)?;
-
+        let buf = std::fs::read(json_location)?;
         serde_json::from_slice(&buf)?
     } else {
         serde_json::from_reader(std::io::stdin())?
