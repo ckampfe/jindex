@@ -44,13 +44,13 @@ pub fn jindex<S: PathValueSink>(sink: &mut S, json: &serde_json::Value) -> Resul
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct PathValue<'a> {
-    pub path_components: Vec<PathComponent<'a>>,
-    pub value: &'a serde_json::Value,
+pub struct PathValue<'pv> {
+    pub path_components: Vec<PathComponent<'pv>>,
+    pub value: &'pv serde_json::Value,
 }
 
-impl<'a> PathValue<'a> {
-    fn new(value: &'a serde_json::Value, path_components: Vec<PathComponent<'a>>) -> Self {
+impl<'pv> PathValue<'pv> {
+    fn new(value: &'pv serde_json::Value, path_components: Vec<PathComponent<'pv>>) -> Self {
         Self {
             value,
             path_components,
@@ -60,16 +60,16 @@ impl<'a> PathValue<'a> {
 
 #[derive(Clone, Copy, Debug, Serialize)]
 #[serde(untagged)]
-pub enum PathComponent<'a> {
-    Identifier(&'a str),
-    NonIdentifier(&'a str),
+pub enum PathComponent<'pc> {
+    Identifier(&'pc str),
+    NonIdentifier(&'pc str),
     Index(usize),
 }
 
-fn traverse_object<'a, 'b>(
-    traversal_stack: &'b mut Vec<PathValue<'a>>,
-    object: &'a serde_json::Map<String, serde_json::Value>,
-    pathvalue: &PathValue<'a>,
+fn traverse_object<'pv>(
+    traversal_stack: &mut Vec<PathValue<'pv>>,
+    object: &'pv serde_json::Map<String, serde_json::Value>,
+    pathvalue: &PathValue<'pv>,
 ) {
     traversal_stack.extend(object.iter().map(|(k, v)| {
         let mut cloned = Vec::with_capacity(DEFAULT_PATH_COMPONENTS_CAPACITY);
@@ -88,10 +88,10 @@ fn traverse_object<'a, 'b>(
     }))
 }
 
-fn traverse_array<'a, 'b>(
-    traversal_stack: &'b mut Vec<PathValue<'a>>,
-    array: &'a [serde_json::Value],
-    pathvalue: &PathValue<'a>,
+fn traverse_array<'pv>(
+    traversal_stack: &mut Vec<PathValue<'pv>>,
+    array: &'pv [serde_json::Value],
+    pathvalue: &PathValue<'pv>,
 ) {
     traversal_stack.extend(array.iter().enumerate().map(|(i, v)| {
         let mut cloned = Vec::with_capacity(DEFAULT_PATH_COMPONENTS_CAPACITY);
