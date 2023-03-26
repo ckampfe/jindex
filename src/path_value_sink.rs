@@ -21,13 +21,13 @@ pub trait PathValueSink {
 /// Write `PathValue`s to the given `writer` in the style of
 /// https://github.com/tomnomnom/gron
 #[derive(Debug)]
-pub struct GronWriter<'a, W: Write> {
-    writer: &'a mut W,
+pub struct GronWriter<'writer, W: Write> {
+    writer: &'writer mut W,
     options: GronWriterOptions,
 }
 
-impl<'a, W: Write> GronWriter<'a, W> {
-    pub fn new(writer: &'a mut W, options: GronWriterOptions) -> Self {
+impl<'writer, W: Write> GronWriter<'writer, W> {
+    pub fn new(writer: &'writer mut W, options: GronWriterOptions) -> Self {
         Self { writer, options }
     }
 }
@@ -43,7 +43,7 @@ impl Default for GronWriterOptions {
     }
 }
 
-impl<'a, W: Write> PathValueSink for GronWriter<'a, W> {
+impl<'writer, W: Write> PathValueSink for GronWriter<'writer, W> {
     #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
         let should_write = if self.options.only_scalars {
@@ -93,21 +93,21 @@ impl<'a, W: Write> PathValueSink for GronWriter<'a, W> {
 /// JSON Pointers.
 /// See https://datatracker.ietf.org/doc/html/rfc6901
 #[derive(Debug)]
-pub struct JSONPointerWriter<'a, W: Write> {
-    writer: &'a mut W,
-    options: JSONPointerWriterOptions<'a>,
+pub struct JSONPointerWriter<'writer, W: Write> {
+    writer: &'writer mut W,
+    options: JSONPointerWriterOptions<'writer>,
 }
 
-impl<'a, W: Write> JSONPointerWriter<'a, W> {
-    pub fn new(writer: &'a mut W, options: JSONPointerWriterOptions<'a>) -> Self {
+impl<'writer, W: Write> JSONPointerWriter<'writer, W> {
+    pub fn new(writer: &'writer mut W, options: JSONPointerWriterOptions<'writer>) -> Self {
         Self { writer, options }
     }
 }
 
 #[derive(Debug)]
-pub struct JSONPointerWriterOptions<'a> {
+pub struct JSONPointerWriterOptions<'options> {
     pub only_scalars: bool,
-    pub separator: &'a str,
+    pub separator: &'options str,
 }
 
 impl Default for JSONPointerWriterOptions<'_> {
@@ -123,7 +123,7 @@ const TILDE: char = '~';
 const FORWARD_SLASH: char = '/';
 const JSON_POINTER_SPECIAL_CHARS: &[char] = &[TILDE, FORWARD_SLASH];
 
-impl<'a, W: Write> PathValueSink for JSONPointerWriter<'a, W> {
+impl<'writer, W: Write> PathValueSink for JSONPointerWriter<'writer, W> {
     #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
         let should_write = if self.options.only_scalars {
@@ -171,13 +171,13 @@ impl<'a, W: Write> PathValueSink for JSONPointerWriter<'a, W> {
 /// JSON objects separated by newlines,
 /// like `{"path_components":["some","paths"],"value":"foo"}
 #[derive(Debug)]
-pub struct JSONWriter<'a, W: Write> {
-    writer: &'a mut W,
+pub struct JSONWriter<'writer, W: Write> {
+    writer: &'writer mut W,
     options: JsonWriterOptions,
 }
 
-impl<'a, W: Write> JSONWriter<'a, W> {
-    pub fn new(writer: &'a mut W, options: JsonWriterOptions) -> Self {
+impl<'writer, W: Write> JSONWriter<'writer, W> {
+    pub fn new(writer: &'writer mut W, options: JsonWriterOptions) -> Self {
         Self { writer, options }
     }
 }
@@ -193,7 +193,7 @@ impl Default for JsonWriterOptions {
     }
 }
 
-impl<'a, W: Write> PathValueSink for JSONWriter<'a, W> {
+impl<'writer, W: Write> PathValueSink for JSONWriter<'writer, W> {
     #[inline]
     fn handle_pathvalue(&mut self, pathvalue: &PathValue) -> Result<()> {
         let should_write = if self.options.only_scalars {
